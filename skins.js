@@ -1,6 +1,5 @@
 class SkinManager {
     constructor() {
-        // 15 Matchable & Aesthetic Bird Skins
         this.skins = [
             { name: "Sunny Gold", color: "#f4a261", wing: "#e76f51", price: 0, unlocked: true },
             { name: "Forest Robin", color: "#2a9d8f", wing: "#264653", price: 5, unlocked: false },
@@ -20,7 +19,6 @@ class SkinManager {
         ];
         this.currentIndex = 0;
 
-        // 15 Background Skins (Only background sky & mountains change)
         this.backgrounds = [
             { name: "Green Valley", top: "#2d6a4f", mid: "#52b788", bot: "#95d5b2", mountain: "#2d6a4f", price: 0, unlocked: true },
             { name: "Golden Sunset", top: "#1d3557", mid: "#457b9d", bot: "#f4a261", mountain: "#264653", price: 10, unlocked: false },
@@ -41,13 +39,8 @@ class SkinManager {
         this.bgIndex = 0;
     }
 
-    getCurrentSkin() {
-        return this.skins[this.currentIndex];
-    }
-
-    getCurrentBackground() {
-        return this.backgrounds[this.bgIndex];
-    }
+    getCurrentSkin() { return this.skins[this.currentIndex]; }
+    getCurrentBackground() { return this.backgrounds[this.bgIndex]; }
 
     getUnlockedSkins() {
         let unlocked = [];
@@ -109,75 +102,42 @@ class SkinManager {
         ctx.save();
         ctx.translate(x, y);
         ctx.scale(scale, scale);
-
         let skin = this.skins[skinIndex];
 
         ctx.fillStyle = skin.wing;
         ctx.beginPath();
-        ctx.moveTo(-10, 0);
-        ctx.lineTo(-22, -8);
-        ctx.lineTo(-15, 2);
-        ctx.lineTo(-24, 8);
-        ctx.lineTo(-12, 6);
-        ctx.closePath();
-        ctx.fill();
-        ctx.strokeStyle = skin.color;
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        ctx.moveTo(-10, 0); ctx.lineTo(-22, -8); ctx.lineTo(-15, 2); ctx.lineTo(-24, 8); ctx.lineTo(-12, 6);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = skin.color; ctx.lineWidth = 1; ctx.stroke();
 
         ctx.fillStyle = skin.color;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 16, 12, -0.1, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = skin.wing;
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(0, 0, 16, 12, -0.1, 0, Math.PI * 2);
+        ctx.fill(); ctx.strokeStyle = skin.wing; ctx.lineWidth = 2; ctx.stroke();
 
         ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
-        ctx.beginPath();
-        ctx.ellipse(-2, 3, 10, 7, 0, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-2, 3, 10, 7, 0, 0, Math.PI * 2); ctx.fill();
 
         ctx.save();
-        ctx.translate(-3, 3);
-        ctx.rotate(wingAngle);
+        ctx.translate(-3, 3); ctx.rotate(wingAngle);
         ctx.fillStyle = skin.wing;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 9, 5, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = skin.color;
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(0, 0, 9, 5, 0.3, 0, Math.PI * 2);
+        ctx.fill(); ctx.strokeStyle = skin.color; ctx.lineWidth = 1.2; ctx.stroke();
         ctx.restore();
 
         ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(7, -4, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = "#333";
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(7, -4, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#333"; ctx.lineWidth = 1; ctx.stroke();
 
         ctx.fillStyle = "#000000";
-        ctx.beginPath();
-        ctx.arc(9, -4, 2, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(9, -4, 2, 0, Math.PI * 2); ctx.fill();
 
         ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(10, -5, 0.7, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(10, -5, 0.7, 0, Math.PI * 2); ctx.fill();
 
         ctx.fillStyle = "#ff9f1c";
-        ctx.beginPath();
-        ctx.moveTo(13, -5);
-        ctx.lineTo(21, -1);
-        ctx.lineTo(13, 3);
-        ctx.closePath();
-        ctx.fill();
-        ctx.strokeStyle = "#e85d04";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(13, -5); ctx.lineTo(21, -1); ctx.lineTo(13, 3);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#e85d04"; ctx.lineWidth = 1.5; ctx.stroke();
 
         ctx.restore();
     }

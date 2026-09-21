@@ -225,7 +225,8 @@
 
     <h2>Flappy Bird - Mobile Edition</h2>
     <canvas id="gameCanvas" width="360" height="640"></canvas>
-    <input type="text" id="mobileInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+    <!-- Added dir="auto" to support Urdu / Right-to-Left writing smoothly -->
+    <input type="text" id="mobileInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" dir="auto" />
     <div class="instructions">
         Tap screen or press Spacebar to play!
     </div>
@@ -359,7 +360,7 @@
                     if (inputActiveField === "username") inputUsernameVal = inputUsernameVal.slice(0, -1);
                     else inputCountryVal = inputCountryVal.slice(0, -1);
                     playSound("click");
-                } else if (e.key.length === 1 && /^[a-zA-Z0-9_ ]$/.test(e.key)) {
+                } else if (e.key.length === 1 && /^[a-zA-Z0-9_\u0600-\u06FF ]$/.test(e.key)) {
                     if (inputActiveField === "username" && inputUsernameVal.length < 15) {
                         inputUsernameVal += e.key;
                         playSound("click");
@@ -396,7 +397,6 @@
             }
         });
 
-        // Fixed coordinate scaling mapping for all buttons & panels
         canvas.addEventListener("click", async (e) => {
             let rect = canvas.getBoundingClientRect();
             let mouseX = ((e.clientX - rect.left) / rect.width) * canvas.width;
@@ -435,11 +435,7 @@
                         setupErrorMsg = "Username min 3 chars!";
                         return;
                     }
-                    if (!validCountries.includes(cleanCountry)) {
-                        setupErrorMsg = "Valid country (e.g. India, USA)";
-                        return;
-                    }
-
+                    // Allow custom countries as well or validate
                     setupErrorMsg = "Checking uniqueness...";
                     let unique = await window.isUsernameUnique(cleanUser);
                     if (!unique) {
@@ -526,11 +522,9 @@
                 triggerVibration();
             } else if (window.gameState === "GAMEOVER") {
                 let pY = 160;
-                // PLAY AGAIN Button Check
                 if (mouseX >= 90 && mouseX <= 270 && mouseY >= pY + 140 && mouseY <= pY + 180) {
                     triggerClick("retry", () => { resetGame(); window.gameState = "PLAYING"; });
                 }
-                // MAIN MENU Button Check
                 if (mouseX >= 90 && mouseX <= 270 && mouseY >= pY + 195 && mouseY <= pY + 235) {
                     triggerClick("popup_menu", () => { window.gameState = "MENU"; });
                 }
@@ -778,8 +772,10 @@
 
                 ctx.fillStyle = "#88ab8e"; ctx.font = "11px 'Segoe UI', monospace"; ctx.textAlign = "left";
                 ctx.fillText("Username (Unique):", uBoxX, uBoxY - 8);
+                
                 ctx.fillStyle = "#ffffff"; ctx.font = "14px 'Segoe UI', monospace";
-                ctx.fillText(inputUsernameVal + (inputActiveField === "username" && Math.floor(idleAnimCounter * 10) % 2 === 0 ? "|" : ""), uBoxX + 15, uBoxY + 28);
+                let displayUser = inputUsernameVal + (inputActiveField === "username" && Math.floor(idleAnimCounter * 10) % 2 === 0 ? "|" : "");
+                ctx.fillText(displayUser, uBoxX + 15, uBoxY + 28);
 
                 let cBoxX = 50, cBoxY = 300, cBoxW = 260, cBoxH = 45;
                 ctx.fillStyle = inputActiveField === "country" ? "#1f4e38" : "#133121";
@@ -788,8 +784,10 @@
 
                 ctx.fillStyle = "#88ab8e"; ctx.font = "11px 'Segoe UI', monospace";
                 ctx.fillText("Country (e.g. India, USA):", cBoxX, cBoxY - 8);
+                
                 ctx.fillStyle = "#ffffff"; ctx.font = "14px 'Segoe UI', monospace";
-                ctx.fillText(inputCountryVal + (inputActiveField === "country" && Math.floor(idleAnimCounter * 10) % 2 === 0 ? "|" : ""), cBoxX + 15, cBoxY + 28);
+                let displayCountry = inputCountryVal + (inputActiveField === "country" && Math.floor(idleAnimCounter * 10) % 2 === 0 ? "|" : "");
+                ctx.fillText(displayCountry, cBoxX + 15, cBoxY + 28);
 
                 if (setupErrorMsg) {
                     ctx.fillStyle = "#ff758f"; ctx.font = "bold 11px 'Segoe UI', monospace"; ctx.textAlign = "center";

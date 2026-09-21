@@ -2,8 +2,8 @@
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flappy Bird - Mobile Cloud Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird - Desktop Cloud Game</title>
     <style>
         body {
             margin: 0;
@@ -18,32 +18,21 @@
             overflow: hidden;
         }
         canvas {
-            width: 100vw;
-            height: 100vh;
-            max-width: 450px;
-            max-height: 90vh;
-            aspect-ratio: 360 / 640;
+            width: 450px;
+            height: 640px;
             border: 4px solid #1b4332;
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
             background: #1b4332;
-            touch-action: none;
             image-rendering: optimizeSpeed;
             image-rendering: -webkit-optimize-contrast;
             image-rendering: crisp-edges;
         }
         .instructions {
-            margin-top: 6px;
-            font-size: 11px;
+            margin-top: 10px;
+            font-size: 13px;
             color: #b7e4c7;
             text-align: center;
-        }
-        #mobileInput {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
-            height: 0;
-            width: 0;
         }
     </style>
     <script src="skins.js"></script>
@@ -235,9 +224,8 @@
 <body>
 
     <canvas id="gameCanvas" width="360" height="640"></canvas>
-    <input type="text" id="mobileInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" dir="ltr" style="direction: ltr; text-align: left;" />
     <div class="instructions">
-        Press Spacebar or Click to play!
+        Type directly on keyboard for profile setup | Press Spacebar or Click to play!
     </div>
 
     <script>
@@ -246,8 +234,6 @@
         
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
-
-        const mobileInput = document.getElementById("mobileInput");
 
         let gameState = "LOADING"; 
         let score = 0;
@@ -345,12 +331,6 @@
             osc.start(now); osc.stop(now + 0.6);
         }
 
-        function triggerVibration() {
-            if (settings.vibration && navigator.vibrate) {
-                navigator.vibrate(40);
-            }
-        }
-
         const coinImg = new Image(); coinImg.src = "coin.png";
         const settingImg = new Image(); settingImg.src = "setting.png";
 
@@ -382,8 +362,6 @@
 
         window.addEventListener("keydown", async (e) => {
             if (window.gameState === "PROFILE_SETUP") {
-                if (document.activeElement === mobileInput) return;
-
                 if (e.key === "Tab") {
                     e.preventDefault();
                     inputActiveField = inputActiveField === "username" ? "country" : "username";
@@ -392,20 +370,16 @@
                     e.preventDefault();
                     if (inputActiveField === "username") {
                         inputUsernameVal = inputUsernameVal.slice(0, -1);
-                        mobileInput.value = inputUsernameVal;
                     } else {
                         inputCountryVal = inputCountryVal.slice(0, -1);
-                        mobileInput.value = inputCountryVal;
                     }
                     playSound("click");
                 } else if (e.key.length === 1 && /^[a-zA-Z0-9_ ]$/.test(e.key)) {
                     if (inputActiveField === "username" && inputUsernameVal.length < 15) {
                         inputUsernameVal += e.key;
-                        mobileInput.value = inputUsernameVal;
                         playSound("click");
                     } else if (inputActiveField === "country" && inputCountryVal.length < 20) {
                         inputCountryVal += e.key;
-                        mobileInput.value = inputCountryVal;
                         playSound("click");
                     }
                 }
@@ -417,7 +391,6 @@
                     bird.velocity = bird.lift;
                     bird.wingAngle = -0.8;
                     playSound("flap");
-                    triggerVibration();
                     e.preventDefault();
                 } else if (window.gameState === "GAMEOVER") {
                     window.gameState = "MENU";
@@ -425,17 +398,6 @@
                 } else if (window.gameState === "MENU") {
                     resetGame(); window.gameState = "PLAYING";
                     e.preventDefault();
-                }
-            }
-        });
-
-        mobileInput.addEventListener("input", (e) => {
-            if (window.gameState === "PROFILE_SETUP") {
-                let val = mobileInput.value;
-                if (inputActiveField === "username") {
-                    inputUsernameVal = val.slice(0, 15);
-                } else {
-                    inputCountryVal = val.slice(0, 20);
                 }
             }
         });
@@ -462,13 +424,9 @@
             } else if (window.gameState === "PROFILE_SETUP") {
                 if (mouseX >= 50 && mouseX <= 310 && mouseY >= 210 && mouseY <= 260) {
                     inputActiveField = "username";
-                    mobileInput.value = inputUsernameVal;
-                    mobileInput.focus();
                     playSound("click");
                 } else if (mouseX >= 50 && mouseX <= 310 && mouseY >= 300 && mouseY <= 350) {
                     inputActiveField = "country";
-                    mobileInput.value = inputCountryVal;
-                    mobileInput.focus();
                     playSound("click");
                 } else if (mouseX >= 80 && mouseX <= 280 && mouseY >= 420 && mouseY <= 470) {
                     let cleanUser = inputUsernameVal.trim();
@@ -495,14 +453,11 @@
                     window.username = cleanUser;
                     window.userCountry = matchedCountry;
                     setupErrorMsg = "";
-                    mobileInput.blur();
 
                     await window.saveCloudGameData();
                     triggerClick("save_profile", () => {
                         window.gameState = "MENU";
                     });
-                } else {
-                    mobileInput.focus();
                 }
             } else if (window.gameState === "MENU") {
                 let distToGear = Math.hypot(mouseX - 30, mouseY - 30);
@@ -533,9 +488,6 @@
                 }
                 if (mouseX >= 220 && mouseX <= 300 && mouseY >= 280 && mouseY <= 320) {
                     settings.sound = !settings.sound; playSound("click");
-                }
-                if (mouseX >= 220 && mouseX <= 300 && mouseY >= 340 && mouseY <= 380) {
-                    settings.vibration = !settings.vibration; playSound("click");
                 }
                 if (mouseX >= 45 && mouseX <= 315 && mouseY >= 415 && mouseY <= 455) {
                     triggerClick("logout", () => {
@@ -574,7 +526,6 @@
                 bird.velocity = bird.lift;
                 bird.wingAngle = -0.8;
                 playSound("flap");
-                triggerVibration();
             } else if (window.gameState === "GAMEOVER") {
                 let pY = 160;
                 if (mouseX >= 90 && mouseX <= 270 && mouseY >= pY + 140 && mouseY <= pY + 180) {
@@ -716,7 +667,7 @@
             if (bird.y + bird.height >= canvas.height - 45) {
                 bird.y = canvas.height - 45 - bird.height;
                 window.gameState = "GAMEOVER";
-                playSound("gameover"); triggerVibration();
+                playSound("gameover");
             }
             if (bird.y <= 0) { bird.y = 0; bird.velocity = 0; }
 
@@ -733,7 +684,7 @@
                     (bird.y < p.top || bird.y + bird.height > canvas.height - p.bottom)
                 ) {
                     window.gameState = "GAMEOVER";
-                    playSound("gameover"); triggerVibration();
+                    playSound("gameover");
                 }
 
                 if (!p.passed && p.x + pipeWidth < bird.x) {
@@ -838,7 +789,7 @@
                 ctx.strokeStyle = inputActiveField === "country" ? "#9ef01a" : "#52b788"; ctx.stroke();
 
                 ctx.fillStyle = "#88ab8e"; ctx.font = "11px 'Segoe UI', sans-serif";
-                ctx.fillText("World Country (e.g. India, Pakistan):", cBoxX, cBoxY - 8);
+                ctx.fillText("World Country (e.g. India, USA):", cBoxX, cBoxY - 8);
                 
                 ctx.fillStyle = "#ffffff"; ctx.font = "14px 'Segoe UI', sans-serif";
                 let displayCountry = inputCountryVal + (inputActiveField === "country" && Math.floor(idleAnimCounter * 10) % 2 === 0 ? "|" : "");
@@ -913,7 +864,6 @@
 
                 drawSettingRow("Background Music", settings.music, boxY + 115);
                 drawSettingRow("Sound Effects", settings.sound, boxY + 175);
-                drawSettingRow("Vibration", settings.vibration, boxY + 235);
 
                 drawWoodenButton("LOGOUT / SWITCH ACCOUNT", boxX + 20, boxY + 310, boxW - 40, 40, "logout");
 

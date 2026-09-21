@@ -33,6 +33,7 @@
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
             background: #1b4332;
+            touch-action: none;
         }
         .instructions {
             margin-top: 6px;
@@ -224,7 +225,8 @@
 
     <h2>Flappy Bird - Mobile Edition</h2>
     <canvas id="gameCanvas" width="360" height="640"></canvas>
-    <input type="text" id="mobileInput" autocomplete="off" />
+    <!-- Disabled autocomplete & autocorrect so 's' doesn't autofill old text -->
+    <input type="text" id="mobileInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
     <div class="instructions">
         Tap screen or press Spacebar to play!
     </div>
@@ -346,9 +348,11 @@
         let inputCountryVal = "";
         let setupErrorMsg = "";
 
-        // Handle Keyboard input when setting up profile
+        // Handle Keyboard input when setting up profile (Only when mobile input is NOT focused to prevent duplication)
         window.addEventListener("keydown", async (e) => {
             if (window.gameState === "PROFILE_SETUP") {
+                if (document.activeElement === mobileInput) return; // Let mobile input handle it
+
                 if (e.key === "Tab") {
                     e.preventDefault();
                     inputActiveField = inputActiveField === "username" ? "country" : "username";
@@ -383,7 +387,7 @@
             }
         });
 
-        // Mobile hidden input listener to capture software keyboard typing
+        // Mobile hidden input listener to capture software keyboard typing cleanly
         mobileInput.addEventListener("input", (e) => {
             if (window.gameState === "PROFILE_SETUP") {
                 let val = mobileInput.value;
@@ -395,10 +399,13 @@
             }
         });
 
+        // Precise scale-adjusted click coordinate calculation
         canvas.addEventListener("click", async (e) => {
             let rect = canvas.getBoundingClientRect();
-            let mouseX = e.clientX - rect.left;
-            let mouseY = e.clientY - rect.top;
+            let scaleX = canvas.width / rect.width;
+            let scaleY = canvas.height / rect.height;
+            let mouseX = (e.clientX - rect.left) * scaleX;
+            let mouseY = (e.clientY - rect.top) * scaleY;
 
             if (window.gameState === "LOGIN") {
                 if (mouseX >= 40 && mouseX <= 320 && mouseY >= 280 && mouseY <= 335) {
@@ -415,19 +422,17 @@
                     });
                 }
             } else if (window.gameState === "PROFILE_SETUP") {
-                mobileInput.focus(); // Trigger mobile keyboard
-
                 if (mouseX >= 50 && mouseX <= 310 && mouseY >= 210 && mouseY <= 260) {
                     inputActiveField = "username";
                     mobileInput.value = inputUsernameVal;
+                    mobileInput.focus();
                     playSound("click");
-                }
-                if (mouseX >= 50 && mouseX <= 310 && mouseY >= 300 && mouseY <= 350) {
+                } else if (mouseX >= 50 && mouseX <= 310 && mouseY >= 300 && mouseY <= 350) {
                     inputActiveField = "country";
                     mobileInput.value = inputCountryVal;
+                    mobileInput.focus();
                     playSound("click");
-                }
-                if (mouseX >= 80 && mouseX <= 280 && mouseY >= 420 && mouseY <= 470) {
+                } else if (mouseX >= 80 && mouseX <= 280 && mouseY >= 420 && mouseY <= 470) {
                     let cleanUser = inputUsernameVal.trim();
                     let cleanCountry = inputCountryVal.trim().toLowerCase();
 
@@ -456,10 +461,12 @@
                     triggerClick("save_profile", () => {
                         window.gameState = "MENU";
                     });
+                } else {
+                    mobileInput.focus(); // Keep keyboard open if tapping setup area
                 }
             } else if (window.gameState === "MENU") {
                 let distToGear = Math.hypot(mouseX - 30, mouseY - 30);
-                if (distToGear <= 18) {
+                if (distToGear <= 22) {
                     triggerClick("gear", () => { window.gameState = "SETTINGS"; });
                     return;
                 }

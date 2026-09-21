@@ -34,7 +34,7 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
             background: #1b4332;
             touch-action: none;
-            /* Crisp text rendering fix */
+            image-rendering: optimizeSpeed;
             image-rendering: -webkit-optimize-contrast;
             image-rendering: crisp-edges;
         }
@@ -101,7 +101,7 @@
                 if (docSnap.exists()) {
                     let data = docSnap.data();
                     window.highScore = data.highScore || 0;
-                    window.coins = data.coins !== undefined ? data.coins : 0; // Default coins 0
+                    window.coins = data.coins !== undefined ? data.coins : 0;
                     window.username = data.username || "";
                     window.userCountry = data.userCountry || "";
                     
@@ -129,7 +129,7 @@
                     }
                 } else {
                     window.highScore = 0;
-                    window.coins = 0; // Default coins 0 for new user
+                    window.coins = 0;
                     window.username = "";
                     window.userCountry = "";
                     if (checkProfile) {
@@ -242,7 +242,8 @@
 
     <h2>Flappy Bird - Mobile Edition</h2>
     <canvas id="gameCanvas" width="360" height="640"></canvas>
-    <input type="text" id="mobileInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" dir="auto" />
+    <!-- Fixed left-to-right normal input direction -->
+    <input type="text" id="mobileInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" dir="ltr" />
     <div class="instructions">
         Tap screen or press Spacebar to play!
     </div>
@@ -251,15 +252,15 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         
-        // Font crispness fix
-        ctx.imageSmoothingEnabled = false;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
 
         const mobileInput = document.getElementById("mobileInput");
 
         let gameState = "LOADING"; 
         let score = 0;
         let highScore = 0;
-        let coins = 0; // Default coins set to 0
+        let coins = 0;
 
         window.gameState = gameState;
         window.highScore = highScore;
@@ -387,6 +388,7 @@
         let inputCountryVal = "";
         let setupErrorMsg = "";
 
+        // Fixed keydown listener to support Backspace cleanly
         window.addEventListener("keydown", async (e) => {
             if (window.gameState === "PROFILE_SETUP") {
                 if (document.activeElement === mobileInput) return;
@@ -396,15 +398,23 @@
                     inputActiveField = inputActiveField === "username" ? "country" : "username";
                     playSound("click");
                 } else if (e.key === "Backspace") {
-                    if (inputActiveField === "username") inputUsernameVal = inputUsernameVal.slice(0, -1);
-                    else inputCountryVal = inputCountryVal.slice(0, -1);
+                    e.preventDefault();
+                    if (inputActiveField === "username") {
+                        inputUsernameVal = inputUsernameVal.slice(0, -1);
+                        mobileInput.value = inputUsernameVal;
+                    } else {
+                        inputCountryVal = inputCountryVal.slice(0, -1);
+                        mobileInput.value = inputCountryVal;
+                    }
                     playSound("click");
-                } else if (e.key.length === 1 && /^[a-zA-Z0-9_\u0600-\u06FF ]$/.test(e.key)) {
+                } else if (e.key.length === 1 && /^[a-zA-Z0-9_ ]$/.test(e.key)) {
                     if (inputActiveField === "username" && inputUsernameVal.length < 15) {
                         inputUsernameVal += e.key;
+                        mobileInput.value = inputUsernameVal;
                         playSound("click");
                     } else if (inputActiveField === "country" && inputCountryVal.length < 20) {
                         inputCountryVal += e.key;
+                        mobileInput.value = inputCountryVal;
                         playSound("click");
                     }
                 }
@@ -539,14 +549,12 @@
                     });
                 }
             } else if (window.gameState === "LEADERBOARD" || window.gameState === "STORE") {
-                // Back button click check
                 if (mouseX >= 15 && mouseX <= 85 && mouseY >= 14 && mouseY <= 46) {
                     triggerClick("back", () => { window.gameState = "MENU"; });
                     return;
                 }
 
                 if (window.gameState === "STORE") {
-                    // Non-overlapping tab clicks check
                     if (mouseX >= 95 && mouseX <= 175 && mouseY >= 14 && mouseY <= 46) { storeTab = "BIRD"; playSound("click"); return; }
                     if (mouseX >= 183 && mouseX <= 310 && mouseY >= 14 && mouseY <= 46) { storeTab = "BACKGROUND"; playSound("click"); return; }
 
@@ -973,15 +981,15 @@
             } else if (window.gameState === "STORE") {
                 ctx.fillStyle = "#1b4332"; ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
-                // Non-overlapping distinct buttons for Back, Birds, and Backgrounds
-                drawWoodenButton("<- BACK", 15, 14, 70, 32, "back");
-                drawWoodenButton("BIRDS", 95, 14, 80, 32, "tab_birds");
-                drawWoodenButton("BACKGROUNDS", 183, 14, 127, 32, "tab_bgs");
+                drawWoodenButton("<- BACK", 12, 14, 65, 30, "back");
+                drawWoodenButton("BIRDS", 82, 14, 68, 30, "tab_birds");
+                drawWoodenButton("BACKGROUNDS", 155, 14, 105, 30, "tab_bgs");
 
-                let storeCoinX = 290;
-                if (coinImg.complete && coinImg.naturalWidth !== 0) ctx.drawImage(coinImg, storeCoinX, 20, 16, 16);
+                // Shifted store coin further right to avoid overlapping with background tab
+                let storeCoinX = 272;
+                if (coinImg.complete && coinImg.naturalWidth !== 0) ctx.drawImage(coinImg, storeCoinX, 19, 16, 16);
                 ctx.fillStyle = "#ffcc00"; ctx.font = "bold 12px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
-                ctx.fillText(window.coins, storeCoinX + 18, 33);
+                ctx.fillText(window.coins, storeCoinX + 18, 32);
 
                 let itemsList = storeTab === "BIRD" ? skinManager.skins : skinManager.backgrounds;
                 let activeIdx = storeTab === "BIRD" ? skinManager.currentIndex : skinManager.bgIndex;

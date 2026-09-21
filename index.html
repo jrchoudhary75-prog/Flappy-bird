@@ -38,7 +38,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, query, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBYTo_Flsgdj_3ktQ3FB704xgbTSppLpt0",
@@ -64,13 +64,7 @@
                 window.userEmail = user.email;
                 await window.loadCloudGameData(user.email, true);
             } else {
-                let savedEmail = localStorage.getItem("flappy_user_email");
-                if (savedEmail) {
-                    window.userEmail = savedEmail;
-                    await window.loadCloudGameData(savedEmail, true);
-                } else {
-                    window.gameState = "LOGIN";
-                }
+                window.gameState = "LOGIN";
             }
         });
 
@@ -97,8 +91,6 @@
                     if (data.activeBgIndex !== undefined && window.skinManager) {
                        window.skinManager.bgIndex = data.activeBgIndex;
                     }
-
-                    localStorage.setItem("flappy_user_email", email);
 
                     if (checkProfile) {
                         if (!window.username || !window.userCountry) {
@@ -192,28 +184,21 @@
                 .then((result) => {
                     const user = result.user;
                     window.userEmail = user.email;
-                    localStorage.setItem("flappy_user_email", user.email);
                     window.loadCloudGameData(user.email, true);
                 })
                 .catch((error) => {
-                    let dummyEmail = "player_" + Math.floor(Math.random() * 100000) + "@gmail.com";
-                    window.userEmail = dummyEmail;
-                    localStorage.setItem("flappy_user_email", dummyEmail);
-                    window.loadCloudGameData(dummyEmail, true);
+                    console.error("Login failed:", error);
                 });
         };
 
         window.logoutUser = function() {
             signOut(auth).then(() => {
-                localStorage.removeItem("flappy_user_email");
                 window.userEmail = null;
                 window.username = "";
                 window.userCountry = "";
                 window.gameState = "LOGIN";
             }).catch((error) => {
-                localStorage.removeItem("flappy_user_email");
-                window.userEmail = null;
-                window.gameState = "LOGIN";
+                console.error("Logout error:", error);
             });
         };
     </script>
@@ -405,17 +390,9 @@
             let mouseY = ((e.clientY - rect.top) / rect.height) * canvas.height;
 
             if (window.gameState === "LOGIN") {
-                if (mouseX >= 40 && mouseX <= 320 && mouseY >= 280 && mouseY <= 335) {
+                if (mouseX >= 40 && mouseX <= 320 && mouseY >= 310 && mouseY <= 365) {
                     triggerClick("google_login", () => {
                         if (typeof window.realGoogleLogin === "function") window.realGoogleLogin();
-                    });
-                }
-                if (mouseX >= 40 && mouseX <= 320 && mouseY >= 350 && mouseY <= 405) {
-                    triggerClick("guest_login", () => {
-                        let guestEmail = "player_" + Math.floor(Math.random() * 100000) + "@gmail.com";
-                        window.userEmail = guestEmail;
-                        localStorage.setItem("flappy_user_email", guestEmail);
-                        window.loadCloudGameData(guestEmail, true);
                     });
                 }
             } else if (window.gameState === "PROFILE_SETUP") {
@@ -742,21 +719,15 @@
                 ctx.fillStyle = "#ffffff"; ctx.font = "bold 21px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                 ctx.fillText("FLAPPY CLOUD SYNC", canvas.width / 2, 140);
                 ctx.font = "12px 'Segoe UI', sans-serif"; ctx.fillStyle = "#b7e4c7";
-                ctx.fillText("Sign in to sync your score & skin", canvas.width / 2, 170);
+                ctx.fillText("Sign in with Google to sync your score", canvas.width / 2, 170);
 
-                let btnX = 40, btnY = 280, btnW = 280, btnH = 55;
+                let btnX = 40, btnY = 310, btnW = 280, btnH = 55;
                 ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.roundRect(btnX, btnY, btnW, btnH, 8); ctx.fill();
                 ctx.strokeStyle = "#52b788"; ctx.lineWidth = 2; ctx.stroke();
                 ctx.fillStyle = "#4285F4"; ctx.font = "bold 18px sans-serif"; ctx.textAlign = "left";
                 ctx.fillText("G", btnX + 25, btnY + 33);
                 ctx.fillStyle = "#333333"; ctx.font = "bold 13px sans-serif";
                 ctx.fillText("Sign in with Google (Gmail)", btnX + 55, btnY + 32);
-
-                let guestY = 350;
-                ctx.fillStyle = "#2d6a4f"; ctx.beginPath(); ctx.roundRect(btnX, guestY, btnW, btnH, 8); ctx.fill();
-                ctx.strokeStyle = "#9ef01a"; ctx.stroke();
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 13px sans-serif"; ctx.textAlign = "center";
-                ctx.fillText("Quick Cloud Play", btnX + btnW / 2, guestY + 32);
                 ctx.textAlign = "left";
 
             } else if (window.gameState === "PROFILE_SETUP") {
@@ -766,7 +737,7 @@
                 ctx.fillStyle = "#ffffff"; ctx.font = "bold 19px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                 ctx.fillText("SETUP PROFILE", canvas.width / 2, 60);
                 ctx.fillStyle = "#b7e4c7"; ctx.font = "11px 'Segoe UI', sans-serif";
-                ctx.fillText("Email: " + (window.userEmail || "Guest"), canvas.width / 2, 85);
+                ctx.fillText("Email: " + (window.userEmail || ""), canvas.width / 2, 85);
 
                 let uBoxX = 50, uBoxY = 210, uBoxW = 260, uBoxH = 45;
                 ctx.fillStyle = inputActiveField === "username" ? "#1f4e38" : "#133121";
@@ -833,8 +804,8 @@
                 ctx.fillStyle = "#b7e4c7"; ctx.font = "bold 11px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
                 ctx.fillText("GMAIL CLOUD PROFILE", boxX + 15, boxY + 24);
 
-                let displayEmail = window.userEmail || localStorage.getItem("flappy_user_email") || "Not Logged In";
-                let displayUser = window.username || "Guest Player";
+                let displayEmail = window.userEmail || "Not Logged In";
+                let displayUser = window.username || "Player";
                 let displayCountry = window.userCountry || "N/A";
 
                 ctx.fillStyle = "#ffffff"; ctx.font = "bold 11px 'Segoe UI', sans-serif";

@@ -2,12 +2,12 @@
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Persistent Gmail Cloud Sync</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flappy Bird - Mobile Cloud Game</title>
     <style>
         body {
             margin: 0;
-            background-color: #111;
+            background-color: #0b131a;
             color: #fff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
@@ -18,22 +18,34 @@
             overflow: hidden;
         }
         h2 {
-            margin: 5px;
+            margin: 4px;
+            font-size: 15px;
             color: #9ef01a;
             letter-spacing: 1px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
         }
         canvas {
-            border: 6px solid #113822;
-            border-radius: 12px;
-            box-shadow: 0 0 35px rgba(0, 0, 0, 0.8);
+            width: 360px;
+            height: 640px;
+            max-height: 78vh;
+            aspect-ratio: 9 / 16;
+            border: 4px solid #1b4332;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
             background: #1b4332;
         }
         .instructions {
-            margin-top: 10px;
-            font-size: 13px;
+            margin-top: 6px;
+            font-size: 11px;
             color: #b7e4c7;
             text-align: center;
+        }
+        #mobileInput {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            height: 0;
+            width: 0;
         }
     </style>
     <script src="skins.js"></script>
@@ -42,7 +54,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBYTo_Flsgdj_3ktQ3FB704xgbTSppLpt0",
@@ -63,7 +75,6 @@
         window.leaderboardData = [];
         window.isLeaderboardLoading = false;
 
-        // Check if user session already exists locally or on cloud
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 window.userEmail = user.email;
@@ -79,7 +90,6 @@
             }
         });
 
-        // Cloud Data Load Function
         window.loadCloudGameData = async function(email, checkProfile = false) {
             try {
                 const docRef = doc(db, "flappy_users", email);
@@ -128,20 +138,24 @@
             }
         };
 
-        // Check Username Uniqueness in Firestore
         window.isUsernameUnique = async function(usernameToCheck) {
             try {
                 const usersRef = collection(db, "flappy_users");
-                const q = query(usersRef, where("username", "==", usernameToCheck));
-                const querySnapshot = await getDocs(q);
-                return querySnapshot.empty;
+                const querySnapshot = await getDocs(usersRef);
+                let unique = true;
+                querySnapshot.forEach((docSnap) => {
+                    let d = docSnap.data();
+                    if (d.username && d.username.toLowerCase() === usernameToCheck.toLowerCase() && d.email !== window.userEmail) {
+                        unique = false;
+                    }
+                });
+                return unique;
             } catch (e) {
-                console.error("Error checking username uniqueness:", e);
+                console.error("Error checking uniqueness:", e);
                 return true;
             }
         };
 
-        // Cloud Data Save Function
         window.saveCloudGameData = async function() {
             if (!window.userEmail) return;
             try {
@@ -163,7 +177,6 @@
             }
         };
 
-        // Fetch Global Leaderboard List
         window.fetchLeaderboard = async function() {
             window.isLeaderboardLoading = true;
             try {
@@ -199,7 +212,6 @@
                     window.loadCloudGameData(user.email, true);
                 })
                 .catch((error) => {
-                    console.warn("Google Sign-In restricted. Using offline cloud simulation mode.");
                     let dummyEmail = "player_" + Math.floor(Math.random() * 100000) + "@gmail.com";
                     window.userEmail = dummyEmail;
                     localStorage.setItem("flappy_user_email", dummyEmail);
@@ -210,15 +222,17 @@
 </head>
 <body>
 
-    <h2>Flappy Bird - Persistent Cloud Sync</h2>
-    <canvas id="gameCanvas" width="400" height="500"></canvas>
+    <h2>Flappy Bird - Mobile Edition</h2>
+    <canvas id="gameCanvas" width="360" height="640"></canvas>
+    <input type="text" id="mobileInput" autocomplete="off" />
     <div class="instructions">
-        Click or Spacebar to play! (Skipping login on game reopen)
+        Tap screen or press Spacebar to play!
     </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+        const mobileInput = document.getElementById("mobileInput");
 
         let gameState = "LOADING"; 
         let score = 0;
@@ -234,12 +248,7 @@
 
         const validCountries = ["india", "usa", "uk", "canada", "australia", "germany", "france", "japan", "brazil", "russia", "italy", "spain", "china", "south korea", "mexico"];
 
-        let settings = {
-            music: true,
-            sound: true,
-            vibration: true
-        };
-
+        let settings = { music: true, sound: true, vibration: true };
         let audioCtx = null;
         let musicTimer = 0;
 
@@ -258,7 +267,6 @@
             let gain = audioCtx.createGain();
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-
             let now = audioCtx.currentTime;
 
             if (type === "click") {
@@ -267,24 +275,21 @@
                 osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
                 gain.gain.setValueAtTime(0.15, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-                osc.start(now);
-                osc.stop(now + 0.08);
+                osc.start(now); osc.stop(now + 0.08);
             } else if (type === "flap") {
                 osc.type = "triangle";
                 osc.frequency.setValueAtTime(300, now);
                 osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
                 gain.gain.setValueAtTime(0.2, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.start(now);
-                osc.stop(now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
             } else if (type === "gameover") {
                 osc.type = "sawtooth";
                 osc.frequency.setValueAtTime(220, now);
                 osc.frequency.linearRampToValueAtTime(110, now + 0.3);
                 gain.gain.setValueAtTime(0.3, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-                osc.start(now);
-                osc.stop(now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
             }
         }
 
@@ -292,22 +297,18 @@
             if (!settings.music) return;
             initAudio();
             if (!audioCtx) return;
-
             let notes = [261.63, 329.63, 392.00, 523.25];
             let note = notes[Math.floor(Math.random() * notes.length)];
-
             let osc = audioCtx.createOscillator();
             let gain = audioCtx.createGain();
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-
             let now = audioCtx.currentTime;
             osc.type = "sine";
             osc.frequency.setValueAtTime(note, now);
             gain.gain.setValueAtTime(0.09, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-            osc.start(now);
-            osc.stop(now + 0.6);
+            osc.start(now); osc.stop(now + 0.6);
         }
 
         function triggerVibration() {
@@ -316,37 +317,23 @@
             }
         }
 
-        const coinImg = new Image();
-        coinImg.src = "coin.png";
-
-        const settingImg = new Image();
-        settingImg.src = "setting.png";
+        const coinImg = new Image(); coinImg.src = "coin.png";
+        const settingImg = new Image(); settingImg.src = "setting.png";
 
         let clouds = [
             { x: 50, y: 80, scale: 0.8, speed: 30 },
-            { x: 220, y: 120, scale: 1.1, speed: 50 },
-            { x: 380, y: 60, scale: 0.6, speed: 20 }
+            { x: 200, y: 120, scale: 1.1, speed: 50 },
+            { x: 310, y: 60, scale: 0.6, speed: 20 }
         ];
 
         let mountainX = 0;
         let storeTab = "BIRD";
-
-        let bird = {
-            x: 80,
-            y: 200,
-            width: 32,
-            height: 24,
-            gravity: 1200,
-            lift: -360,
-            velocity: 0,
-            wingAngle: 0
-        };
-
+        let bird = { x: 70, y: 250, width: 32, height: 24, gravity: 1200, lift: -360, velocity: 0, wingAngle: 0 };
         let pipes = [];
-        let pipeWidth = 60;
-        let pipeCapHeight = 24;
-        let pipeCapExtra = 6;
-        let pipeGap = 140;
+        let pipeWidth = 55;
+        let pipeCapHeight = 22;
+        let pipeCapExtra = 5;
+        let pipeGap = 135;
         let pipeSpeed = 180;
         let spawnTimer = 0;
 
@@ -359,6 +346,7 @@
         let inputCountryVal = "";
         let setupErrorMsg = "";
 
+        // Handle Keyboard input when setting up profile
         window.addEventListener("keydown", async (e) => {
             if (window.gameState === "PROFILE_SETUP") {
                 if (e.key === "Tab") {
@@ -366,11 +354,8 @@
                     inputActiveField = inputActiveField === "username" ? "country" : "username";
                     playSound("click");
                 } else if (e.key === "Backspace") {
-                    if (inputActiveField === "username") {
-                        inputUsernameVal = inputUsernameVal.slice(0, -1);
-                    } else {
-                        inputCountryVal = inputCountryVal.slice(0, -1);
-                    }
+                    if (inputActiveField === "username") inputUsernameVal = inputUsernameVal.slice(0, -1);
+                    else inputCountryVal = inputCountryVal.slice(0, -1);
                     playSound("click");
                 } else if (e.key.length === 1 && /^[a-zA-Z0-9_ ]$/.test(e.key)) {
                     if (inputActiveField === "username" && inputUsernameVal.length < 15) {
@@ -398,20 +383,30 @@
             }
         });
 
+        // Mobile hidden input listener to capture software keyboard typing
+        mobileInput.addEventListener("input", (e) => {
+            if (window.gameState === "PROFILE_SETUP") {
+                let val = mobileInput.value;
+                if (inputActiveField === "username") {
+                    inputUsernameVal = val.slice(0, 15);
+                } else {
+                    inputCountryVal = val.slice(0, 20);
+                }
+            }
+        });
+
         canvas.addEventListener("click", async (e) => {
             let rect = canvas.getBoundingClientRect();
             let mouseX = e.clientX - rect.left;
             let mouseY = e.clientY - rect.top;
 
             if (window.gameState === "LOGIN") {
-                if (mouseX >= 60 && mouseX <= 340 && mouseY >= 230 && mouseY <= 285) {
+                if (mouseX >= 40 && mouseX <= 320 && mouseY >= 280 && mouseY <= 335) {
                     triggerClick("google_login", () => {
-                        if (typeof window.realGoogleLogin === "function") {
-                            window.realGoogleLogin();
-                        }
+                        if (typeof window.realGoogleLogin === "function") window.realGoogleLogin();
                     });
                 }
-                if (mouseX >= 60 && mouseX <= 340 && mouseY >= 300 && mouseY <= 355) {
+                if (mouseX >= 40 && mouseX <= 320 && mouseY >= 350 && mouseY <= 405) {
                     triggerClick("guest_login", () => {
                         let guestEmail = "player_" + Math.floor(Math.random() * 100000) + "@gmail.com";
                         window.userEmail = guestEmail;
@@ -420,37 +415,42 @@
                     });
                 }
             } else if (window.gameState === "PROFILE_SETUP") {
-                if (mouseX >= 70 && mouseX <= 330 && mouseY >= 170 && mouseY <= 215) {
+                mobileInput.focus(); // Trigger mobile keyboard
+
+                if (mouseX >= 50 && mouseX <= 310 && mouseY >= 210 && mouseY <= 260) {
                     inputActiveField = "username";
+                    mobileInput.value = inputUsernameVal;
                     playSound("click");
                 }
-                if (mouseX >= 70 && mouseX <= 330 && mouseY >= 250 && mouseY <= 295) {
+                if (mouseX >= 50 && mouseX <= 310 && mouseY >= 300 && mouseY <= 350) {
                     inputActiveField = "country";
+                    mobileInput.value = inputCountryVal;
                     playSound("click");
                 }
-                if (mouseX >= 100 && mouseX <= 300 && mouseY >= 340 && mouseY <= 390) {
+                if (mouseX >= 80 && mouseX <= 280 && mouseY >= 420 && mouseY <= 470) {
                     let cleanUser = inputUsernameVal.trim();
                     let cleanCountry = inputCountryVal.trim().toLowerCase();
 
                     if (cleanUser.length < 3) {
-                        setupErrorMsg = "Username must be at least 3 chars!";
+                        setupErrorMsg = "Username min 3 chars!";
                         return;
                     }
                     if (!validCountries.includes(cleanCountry)) {
-                        setupErrorMsg = "Enter a valid country (e.g. India, USA)";
+                        setupErrorMsg = "Valid country (e.g. India, USA)";
                         return;
                     }
 
                     setupErrorMsg = "Checking uniqueness...";
                     let unique = await window.isUsernameUnique(cleanUser);
                     if (!unique) {
-                        setupErrorMsg = "Username already taken! Try another.";
+                        setupErrorMsg = "Username already taken!";
                         return;
                     }
 
                     window.username = cleanUser;
                     window.userCountry = cleanCountry.charAt(0).toUpperCase() + cleanCountry.slice(1);
                     setupErrorMsg = "";
+                    mobileInput.blur();
 
                     await window.saveCloudGameData();
                     triggerClick("save_profile", () => {
@@ -460,91 +460,59 @@
             } else if (window.gameState === "MENU") {
                 let distToGear = Math.hypot(mouseX - 30, mouseY - 30);
                 if (distToGear <= 18) {
-                    triggerClick("gear", () => {
-                        window.gameState = "SETTINGS";
-                    });
+                    triggerClick("gear", () => { window.gameState = "SETTINGS"; });
                     return;
                 }
 
-                if (mouseX >= 100 && mouseX <= 300 && mouseY >= 195 && mouseY <= 245) {
-                    triggerClick("play", () => {
-                        resetGame();
-                        window.gameState = "PLAYING";
-                    });
+                if (mouseX >= 80 && mouseX <= 280 && mouseY >= 250 && mouseY <= 305) {
+                    triggerClick("play", () => { resetGame(); window.gameState = "PLAYING"; });
                 }
-                if (mouseX >= 100 && mouseX <= 300 && mouseY >= 260 && mouseY <= 310) {
-                    triggerClick("store", () => {
-                        window.gameState = "STORE";
-                        storeTab = "BIRD";
-                    });
+                if (mouseX >= 80 && mouseX <= 280 && mouseY >= 320 && mouseY <= 375) {
+                    triggerClick("store", () => { window.gameState = "STORE"; storeTab = "BIRD"; });
                 }
-                if (mouseX >= 100 && mouseX <= 300 && mouseY >= 325 && mouseY <= 375) {
+                if (mouseX >= 80 && mouseX <= 280 && mouseY >= 390 && mouseY <= 445) {
                     triggerClick("leaderboard", () => {
                         window.gameState = "LEADERBOARD";
-                        if (typeof window.fetchLeaderboard === "function") {
-                            window.fetchLeaderboard();
-                        }
+                        if (typeof window.fetchLeaderboard === "function") window.fetchLeaderboard();
                     });
                 }
             } else if (window.gameState === "SETTINGS") {
                 if (mouseX >= 15 && mouseX <= 85 && mouseY >= 14 && mouseY <= 46) {
-                    triggerClick("back", () => {
-                        window.gameState = "MENU";
-                    });
+                    triggerClick("back", () => { window.gameState = "MENU"; });
                     return;
                 }
-                if (mouseX >= 240 && mouseX <= 320 && mouseY >= 210 && mouseY <= 250) {
-                    settings.music = !settings.music;
-                    playSound("click");
+                if (mouseX >= 220 && mouseX <= 300 && mouseY >= 230 && mouseY <= 270) {
+                    settings.music = !settings.music; playSound("click");
                 }
-                if (mouseX >= 240 && mouseX <= 320 && mouseY >= 270 && mouseY <= 310) {
-                    settings.sound = !settings.sound;
-                    playSound("click");
+                if (mouseX >= 220 && mouseX <= 300 && mouseY >= 295 && mouseY <= 335) {
+                    settings.sound = !settings.sound; playSound("click");
                 }
-                if (mouseX >= 240 && mouseX <= 320 && mouseY >= 330 && mouseY <= 370) {
-                    settings.vibration = !settings.vibration;
-                    playSound("click");
+                if (mouseX >= 220 && mouseX <= 300 && mouseY >= 360 && mouseY <= 400) {
+                    settings.vibration = !settings.vibration; playSound("click");
                 }
             } else if (window.gameState === "LEADERBOARD" || window.gameState === "STORE") {
                 if (mouseX >= 15 && mouseX <= 85 && mouseY >= 14 && mouseY <= 46) {
-                    triggerClick("back", () => {
-                        window.gameState = "MENU";
-                    });
+                    triggerClick("back", () => { window.gameState = "MENU"; });
                 }
 
                 if (window.gameState === "STORE") {
-                    if (mouseX >= 92 && mouseX <= 172 && mouseY >= 14 && mouseY <= 46) {
-                        storeTab = "BIRD";
-                        playSound("click");
-                    }
-                    if (mouseX >= 178 && mouseX <= 282 && mouseY >= 14 && mouseY <= 46) {
-                        storeTab = "BACKGROUND";
-                        playSound("click");
-                    }
+                    if (mouseX >= 80 && mouseX <= 160 && mouseY >= 14 && mouseY <= 46) { storeTab = "BIRD"; playSound("click"); }
+                    if (mouseX >= 168 && mouseX <= 280 && mouseY >= 14 && mouseY <= 46) { storeTab = "BACKGROUND"; playSound("click"); }
 
                     let itemsList = storeTab === "BIRD" ? skinManager.skins : skinManager.backgrounds;
-
                     for (let i = 0; i < itemsList.length; i++) {
                         let col = i % 3;
                         let row = Math.floor(i / 3);
-                        let boxX = 25 + col * 122;
-                        let boxY = 62 + row * 84;
+                        let boxX = 20 + col * 108;
+                        let boxY = 65 + row * 82;
 
-                        if (mouseX >= boxX && mouseX <= boxX + 112 && mouseY >= boxY && mouseY <= boxY + 78) {
+                        if (mouseX >= boxX && mouseX <= boxX + 102 && mouseY >= boxY && mouseY <= boxY + 76) {
                             if (storeTab === "BIRD") {
-                                let result = skinManager.selectOrBuySkin(i, window.coins);
-                                if (result.success) {
-                                    window.coins -= result.coinsSpent;
-                                    window.saveCloudGameData();
-                                    playSound("click");
-                                }
+                                let res = skinManager.selectOrBuySkin(i, window.coins);
+                                if (res.success) { window.coins -= res.coinsSpent; window.saveCloudGameData(); playSound("click"); }
                             } else {
-                                let result = skinManager.selectOrBuyBackground(i, window.coins);
-                                if (result.success) {
-                                    window.coins -= result.coinsSpent;
-                                    window.saveCloudGameData();
-                                    playSound("click");
-                                }
+                                let res = skinManager.selectOrBuyBackground(i, window.coins);
+                                if (res.success) { window.coins -= res.coinsSpent; window.saveCloudGameData(); playSound("click"); }
                             }
                         }
                     }
@@ -555,17 +523,12 @@
                 playSound("flap");
                 triggerVibration();
             } else if (window.gameState === "GAMEOVER") {
-                let pY = 130;
-                if (mouseX >= 110 && mouseX <= 290 && mouseY >= pY + 130 && mouseY <= pY + 170) {
-                    triggerClick("retry", () => {
-                        resetGame();
-                        window.gameState = "PLAYING";
-                    });
+                let pY = 160;
+                if (mouseX >= 90 && mouseX <= 270 && mouseY >= pY + 140 && mouseY <= pY + 180) {
+                    triggerClick("retry", () => { resetGame(); window.gameState = "PLAYING"; });
                 }
-                if (mouseX >= 110 && mouseX <= 290 && mouseY >= pY + 185 && mouseY <= pY + 225) {
-                    triggerClick("popup_menu", () => {
-                        window.gameState = "MENU";
-                    });
+                if (mouseX >= 90 && mouseX <= 270 && mouseY >= pY + 195 && mouseY <= pY + 235) {
+                    triggerClick("popup_menu", () => { window.gameState = "MENU"; });
                 }
             }
         });
@@ -580,7 +543,6 @@
         function drawWoodenButton(text, x, y, w, h, btnKey) {
             let isPressed = (clickedButton === btnKey && clickAnimTimer > 0);
             let scale = isPressed ? 0.95 : (1 + Math.sin(idleAnimCounter * 1.5) * 0.02);
-            
             let currentW = w * scale;
             let currentH = h * scale;
             let currentX = x + (w - currentW) / 2;
@@ -592,10 +554,7 @@
             ctx.fill();
 
             let grad = ctx.createLinearGradient(currentX, currentY, currentX, currentY + currentH);
-            grad.addColorStop(0, "#52b788");
-            grad.addColorStop(0.5, "#40916c");
-            grad.addColorStop(1, "#2d6a4f");
-
+            grad.addColorStop(0, "#52b788"); grad.addColorStop(0.5, "#40916c"); grad.addColorStop(1, "#2d6a4f");
             ctx.fillStyle = grad;
             ctx.beginPath();
             ctx.roundRect(currentX, currentY, currentW, currentH, 8);
@@ -608,44 +567,36 @@
             ctx.stroke();
 
             ctx.fillStyle = "#ffffff";
-            let fontSize = Math.round(13 * scale);
+            let fontSize = Math.round(12 * scale);
             ctx.font = `bold ${fontSize}px 'Segoe UI', monospace`;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.shadowColor = "#000";
-            ctx.shadowBlur = 3;
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
             ctx.fillText(text, currentX + currentW / 2, currentY + currentH / 2);
-            ctx.shadowBlur = 0;
-            ctx.textAlign = "left";
             ctx.textBaseline = "alphabetic";
         }
 
         function drawActiveBackground(dt) {
             let bg = skinManager.getCurrentBackground();
-            
             let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            skyGrad.addColorStop(0, bg.top);
-            skyGrad.addColorStop(0.5, bg.mid);
-            skyGrad.addColorStop(1, bg.bot);
+            skyGrad.addColorStop(0, bg.top); skyGrad.addColorStop(0.5, bg.mid); skyGrad.addColorStop(1, bg.bot);
             ctx.fillStyle = skyGrad;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            if (window.gameState === "PLAYING" || window.gameState === "MENU" || window.gameState === "SETTINGS" || window.gameState === "STORE" || window.gameState === "LEADERBOARD") {
+            if (window.gameState !== "GAMEOVER") {
                 mountainX -= 30 * dt;
-                if (mountainX <= -400) mountainX = 0;
+                if (mountainX <= -360) mountainX = 0;
             }
 
             ctx.fillStyle = bg.mountain;
             for (let i = 0; i < 2; i++) {
-                let mOffset = mountainX + (i * 400);
+                let mOffset = mountainX + (i * 360);
                 ctx.beginPath();
                 ctx.moveTo(mOffset, canvas.height - 45);
-                ctx.lineTo(mOffset + 0, canvas.height - 150);
-                ctx.lineTo(mOffset + 110, canvas.height - 230);
-                ctx.lineTo(mOffset + 230, canvas.height - 140);
-                ctx.lineTo(mOffset + 340, canvas.height - 210);
-                ctx.lineTo(mOffset + 400, canvas.height - 150);
-                ctx.lineTo(mOffset + 400, canvas.height - 45);
+                ctx.lineTo(mOffset + 0, canvas.height - 140);
+                ctx.lineTo(mOffset + 100, canvas.height - 210);
+                ctx.lineTo(mOffset + 210, canvas.height - 130);
+                ctx.lineTo(mOffset + 300, canvas.height - 190);
+                ctx.lineTo(mOffset + 360, canvas.height - 140);
+                ctx.lineTo(mOffset + 360, canvas.height - 45);
                 ctx.closePath();
                 ctx.fill();
             }
@@ -653,7 +604,7 @@
             ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
             clouds.forEach(c => {
                 c.x -= c.speed * dt;
-                if (c.x < -60) c.x = canvas.width + 60;
+                if (c.x < -50) c.x = canvas.width + 50;
                 drawSingleCloud(c.x, c.y, c.scale);
             });
 
@@ -668,9 +619,9 @@
             ctx.translate(x, y);
             ctx.scale(scale, scale);
             ctx.beginPath();
-            ctx.arc(0, 0, 18, 0, Math.PI * 2);
-            ctx.arc(14, -8, 13, 0, Math.PI * 2);
-            ctx.arc(26, 0, 16, 0, Math.PI * 2);
+            ctx.arc(0, 0, 16, 0, Math.PI * 2);
+            ctx.arc(12, -7, 11, 0, Math.PI * 2);
+            ctx.arc(22, 0, 14, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
         }
@@ -679,17 +630,11 @@
             let minHeight = 40;
             let maxHeight = canvas.height - pipeGap - 90;
             let topHeight = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
-
-            pipes.push({
-                x: canvas.width,
-                top: topHeight,
-                bottom: canvas.height - topHeight - pipeGap,
-                passed: false
-            });
+            pipes.push({ x: canvas.width, top: topHeight, bottom: canvas.height - topHeight - pipeGap, passed: false });
         }
 
         function resetGame() {
-            bird.y = 200;
+            bird.y = 250;
             bird.velocity = 0;
             pipes = [];
             score = 0;
@@ -702,10 +647,7 @@
 
             if (window.gameState === "PLAYING" || window.gameState === "MENU" || window.gameState === "LOGIN") {
                 musicTimer++;
-                if (musicTimer > 50) {
-                    playBackgroundMusicTick();
-                    musicTimer = 0;
-                }
+                if (musicTimer > 50) { playBackgroundMusicTick(); musicTimer = 0; }
             }
 
             if (bird.wingAngle < 0) {
@@ -721,19 +663,12 @@
             if (bird.y + bird.height >= canvas.height - 45) {
                 bird.y = canvas.height - 45 - bird.height;
                 window.gameState = "GAMEOVER";
-                playSound("gameover");
-                triggerVibration();
+                playSound("gameover"); triggerVibration();
             }
-            if (bird.y <= 0) {
-                bird.y = 0;
-                bird.velocity = 0;
-            }
+            if (bird.y <= 0) { bird.y = 0; bird.velocity = 0; }
 
             spawnTimer += dt;
-            if (spawnTimer > 1.7) {
-                spawnPipe();
-                spawnTimer = 0;
-            }
+            if (spawnTimer > 1.7) { spawnPipe(); spawnTimer = 0; }
 
             for (let i = pipes.length - 1; i >= 0; i--) {
                 let p = pipes[i];
@@ -745,36 +680,27 @@
                     (bird.y < p.top || bird.y + bird.height > canvas.height - p.bottom)
                 ) {
                     window.gameState = "GAMEOVER";
-                    playSound("gameover");
-                    triggerVibration();
+                    playSound("gameover"); triggerVibration();
                 }
 
                 if (!p.passed && p.x + pipeWidth < bird.x) {
                     score += 1;
                     window.coins += 1;
                     p.passed = true;
-                    if (score > window.highScore) {
-                        window.highScore = score;
-                    }
+                    if (score > window.highScore) window.highScore = score;
                     window.saveCloudGameData();
                 }
 
-                if (p.x + pipeWidth < 0) {
-                    pipes.splice(i, 1);
-                }
+                if (p.x + pipeWidth < 0) { pipes.splice(i, 1); }
             }
         }
 
         function drawPipe(x, topHeight, bottomHeight) {
             let gradientTop = ctx.createLinearGradient(x, 0, x + pipeWidth, 0);
-            gradientTop.addColorStop(0, "#2a9d8f");
-            gradientTop.addColorStop(0.5, "#52b788");
-            gradientTop.addColorStop(1, "#1b4332");
-
+            gradientTop.addColorStop(0, "#2a9d8f"); gradientTop.addColorStop(0.5, "#52b788"); gradientTop.addColorStop(1, "#1b4332");
             ctx.fillStyle = gradientTop;
             ctx.fillRect(x, 0, pipeWidth, topHeight - pipeCapHeight);
-            ctx.strokeStyle = "#0b2518";
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = "#0b2518"; ctx.lineWidth = 2;
             ctx.strokeRect(x, 0, pipeWidth, topHeight - pipeCapHeight);
 
             ctx.fillRect(x - pipeCapExtra, topHeight - pipeCapHeight, pipeWidth + (pipeCapExtra * 2), pipeCapHeight);
@@ -783,7 +709,6 @@
             let bottomY = canvas.height - bottomHeight;
             ctx.fillRect(x - pipeCapExtra, bottomY, pipeWidth + (pipeCapExtra * 2), pipeCapHeight);
             ctx.strokeRect(x - pipeCapExtra, bottomY, pipeWidth + (pipeCapExtra * 2), pipeCapHeight);
-
             ctx.fillRect(x, bottomY + pipeCapHeight, pipeWidth, bottomHeight - pipeCapHeight);
             ctx.strokeRect(x, bottomY + pipeCapHeight, pipeWidth, bottomHeight - pipeCapHeight);
         }
@@ -793,7 +718,6 @@
             ctx.translate(x + bird.width / 2, y + bird.height / 2);
             let rot = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, bird.velocity * 0.001));
             ctx.rotate(rot);
-
             skinManager.drawBirdGraphic(ctx, 0, 0, 1.1, skinManager.currentIndex, bird.wingAngle);
             ctx.restore();
         }
@@ -803,321 +727,201 @@
 
             if (window.gameState === "LOADING") {
                 drawActiveBackground(dt);
-                ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 18px 'Segoe UI', monospace";
-                ctx.textAlign = "center";
-                ctx.fillText("Checking Cloud Session...", canvas.width / 2, canvas.height / 2);
+                ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 16px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                ctx.fillText("Connecting Cloud...", canvas.width / 2, canvas.height / 2);
                 ctx.textAlign = "left";
                 return;
             }
 
             if (window.gameState === "LOGIN") {
                 drawActiveBackground(dt);
+                ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 22px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                ctx.fillText("FLAPPY CLOUD SYNC", canvas.width / 2, 140);
+                ctx.font = "12px 'Segoe UI', monospace"; ctx.fillStyle = "#b7e4c7";
+                ctx.fillText("Sign in to sync your score & skin", canvas.width / 2, 170);
 
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 24px 'Segoe UI', monospace";
-                ctx.textAlign = "center";
-                ctx.shadowColor = "#000";
-                ctx.shadowBlur = 8;
-                ctx.fillText("FLAPPY CLOUD SYNC", canvas.width / 2, 110);
-                ctx.font = "13px 'Segoe UI', monospace";
-                ctx.fillStyle = "#b7e4c7";
-                ctx.fillText("First-time setup: Sign in with Gmail", canvas.width / 2, 140);
-                ctx.shadowBlur = 0;
+                let btnX = 40, btnY = 280, btnW = 280, btnH = 55;
+                ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.roundRect(btnX, btnY, btnW, btnH, 8); ctx.fill();
+                ctx.strokeStyle = "#52b788"; ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = "#4285F4"; ctx.font = "bold 18px sans-serif"; ctx.textAlign = "left";
+                ctx.fillText("G", btnX + 25, btnY + 33);
+                ctx.fillStyle = "#333333"; ctx.font = "bold 13px sans-serif";
+                ctx.fillText("Sign in with Google (Gmail)", btnX + 55, btnY + 32);
 
-                let btnX = 60, btnY = 230, btnW = 280, btnH = 50;
-                ctx.fillStyle = "#ffffff";
-                ctx.beginPath();
-                ctx.roundRect(btnX, btnY, btnW, btnH, 8);
-                ctx.fill();
-                ctx.strokeStyle = "#52b788";
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                ctx.fillStyle = "#4285F4";
-                ctx.font = "bold 18px 'Segoe UI', sans-serif";
-                ctx.textAlign = "left";
-                ctx.fillText("G", btnX + 25, btnY + 31);
-
-                ctx.fillStyle = "#333333";
-                ctx.font = "bold 14px 'Segoe UI', sans-serif";
-                ctx.fillText("Sign in with Google (Gmail)", btnX + 60, btnY + 30);
-
-                let guestY = 300;
-                ctx.fillStyle = "#2d6a4f";
-                ctx.beginPath();
-                ctx.roundRect(btnX, guestY, btnW, btnH, 8);
-                ctx.fill();
-                ctx.strokeStyle = "#9ef01a";
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 14px 'Segoe UI', sans-serif";
-                ctx.textAlign = "center";
-                ctx.fillText("Quick Cloud Play", btnX + btnW / 2, guestY + 30);
+                let guestY = 350;
+                ctx.fillStyle = "#2d6a4f"; ctx.beginPath(); ctx.roundRect(btnX, guestY, btnW, btnH, 8); ctx.fill();
+                ctx.strokeStyle = "#9ef01a"; ctx.stroke();
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 13px sans-serif"; ctx.textAlign = "center";
+                ctx.fillText("Quick Cloud Play", btnX + btnW / 2, guestY + 32);
                 ctx.textAlign = "left";
 
             } else if (window.gameState === "PROFILE_SETUP") {
                 drawActiveBackground(dt);
-                ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "rgba(0, 0, 0, 0.85)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 22px 'Segoe UI', monospace";
-                ctx.textAlign = "center";
-                ctx.fillText("SETUP UNIQUE PROFILE", canvas.width / 2, 55);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 20px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                ctx.fillText("SETUP PROFILE", canvas.width / 2, 60);
+                ctx.fillStyle = "#b7e4c7"; ctx.font = "11px 'Segoe UI', monospace";
+                ctx.fillText("Email: " + (window.userEmail || "Guest"), canvas.width / 2, 85);
 
-                ctx.fillStyle = "#b7e4c7";
-                ctx.font = "12px 'Segoe UI', monospace";
-                ctx.fillText("Linked Email: " + (window.userEmail || "Guest User"), canvas.width / 2, 78);
-
-                let uBoxX = 70, uBoxY = 170, uBoxW = 260, uBoxH = 45;
+                let uBoxX = 50, uBoxY = 210, uBoxW = 260, uBoxH = 45;
                 ctx.fillStyle = inputActiveField === "username" ? "#1f4e38" : "#133121";
-                ctx.beginPath();
-                ctx.roundRect(uBoxX, uBoxY, uBoxW, uBoxH, 8);
-                ctx.fill();
-                ctx.strokeStyle = inputActiveField === "username" ? "#9ef01a" : "#52b788";
-                ctx.lineWidth = inputActiveField === "username" ? 2.5 : 1.5;
-                ctx.stroke();
+                ctx.beginPath(); ctx.roundRect(uBoxX, uBoxY, uBoxW, uBoxH, 8); ctx.fill();
+                ctx.strokeStyle = inputActiveField === "username" ? "#9ef01a" : "#52b788"; ctx.lineWidth = 2; ctx.stroke();
 
-                ctx.fillStyle = "#88ab8e";
-                ctx.font = "11px 'Segoe UI', monospace";
-                ctx.textAlign = "left";
-                ctx.fillText("Username (Must be Unique):", uBoxX, uBoxY - 8);
-
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "15px 'Segoe UI', monospace";
+                ctx.fillStyle = "#88ab8e"; ctx.font = "11px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                ctx.fillText("Username (Unique):", uBoxX, uBoxY - 8);
+                ctx.fillStyle = "#ffffff"; ctx.font = "14px 'Segoe UI', monospace";
                 ctx.fillText(inputUsernameVal + (inputActiveField === "username" && Math.floor(idleAnimCounter * 10) % 2 === 0 ? "|" : ""), uBoxX + 15, uBoxY + 28);
 
-                let cBoxX = 70, cBoxY = 250, cBoxW = 260, cBoxH = 45;
+                let cBoxX = 50, cBoxY = 300, cBoxW = 260, cBoxH = 45;
                 ctx.fillStyle = inputActiveField === "country" ? "#1f4e38" : "#133121";
-                ctx.beginPath();
-                ctx.roundRect(cBoxX, cBoxY, cBoxW, cBoxH, 8);
-                ctx.fill();
-                ctx.strokeStyle = inputActiveField === "country" ? "#9ef01a" : "#52b788";
-                ctx.lineWidth = inputActiveField === "country" ? 2.5 : 1.5;
-                ctx.stroke();
+                ctx.beginPath(); ctx.roundRect(cBoxX, cBoxY, cBoxW, cBoxH, 8); ctx.fill();
+                ctx.strokeStyle = inputActiveField === "country" ? "#9ef01a" : "#52b788"; ctx.stroke();
 
-                ctx.fillStyle = "#88ab8e";
-                ctx.font = "11px 'Segoe UI', monospace";
+                ctx.fillStyle = "#88ab8e"; ctx.font = "11px 'Segoe UI', monospace";
                 ctx.fillText("Country (e.g. India, USA):", cBoxX, cBoxY - 8);
-
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "15px 'Segoe UI', monospace";
+                ctx.fillStyle = "#ffffff"; ctx.font = "14px 'Segoe UI', monospace";
                 ctx.fillText(inputCountryVal + (inputActiveField === "country" && Math.floor(idleAnimCounter * 10) % 2 === 0 ? "|" : ""), cBoxX + 15, cBoxY + 28);
 
                 if (setupErrorMsg) {
-                    ctx.fillStyle = "#ff758f";
-                    ctx.font = "bold 11px 'Segoe UI', monospace";
-                    ctx.textAlign = "center";
-                    ctx.fillText(setupErrorMsg, canvas.width / 2, 318);
+                    ctx.fillStyle = "#ff758f"; ctx.font = "bold 11px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                    ctx.fillText(setupErrorMsg, canvas.width / 2, 380);
                 }
 
-                drawWoodenButton("SUBMIT & START", 100, 340, 200, 50, "save_profile");
+                drawWoodenButton("SUBMIT & START", 80, 420, 200, 50, "save_profile");
                 ctx.textAlign = "left";
 
             } else if (window.gameState === "MENU") {
                 drawActiveBackground(dt);
 
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 32px 'Segoe UI', monospace";
-                ctx.textAlign = "center";
-                ctx.shadowColor = "#000";
-                ctx.shadowBlur = 8;
-                ctx.fillText("FLAPPY BIRD", canvas.width / 2, 110);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 28px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                ctx.shadowColor = "#000"; ctx.shadowBlur = 6;
+                ctx.fillText("FLAPPY BIRD", canvas.width / 2, 140);
                 ctx.shadowBlur = 0;
 
                 if (settingImg.complete && settingImg.naturalWidth !== 0) {
                     ctx.drawImage(settingImg, 17, 17, 26, 26);
                 } else {
-                    ctx.fillStyle = "#222222";
-                    ctx.beginPath();
-                    ctx.arc(30, 30, 14, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.strokeStyle = "#888888";
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
-
-                    ctx.fillStyle = "#ffffff";
-                    ctx.font = "bold 13px 'Segoe UI', monospace";
-                    ctx.textAlign = "center";
-                    ctx.textBaseline = "middle";
-                    ctx.fillText("⚙", 30, 30);
-                    ctx.textBaseline = "alphabetic";
+                    ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(30, 30, 14, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = "#fff"; ctx.font = "bold 13px monospace"; ctx.textAlign = "center"; ctx.fillText("⚙", 30, 34);
                 }
 
-                drawWoodenButton("PLAY GAME", 100, 195, 200, 50, "play");
-                drawWoodenButton("STORE / SKINS", 100, 260, 200, 50, "store");
-                drawWoodenButton("LEADERBOARD", 100, 325, 200, 50, "leaderboard");
+                drawWoodenButton("PLAY GAME", 80, 250, 200, 55, "play");
+                drawWoodenButton("STORE / SKINS", 80, 320, 200, 55, "store");
+                drawWoodenButton("LEADERBOARD", 80, 390, 200, 55, "leaderboard");
 
             } else if (window.gameState === "SETTINGS") {
-                ctx.fillStyle = "#1b4332";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+                ctx.fillStyle = "#1b4332"; ctx.fillRect(0, 0, canvas.width, canvas.height);
                 drawWoodenButton("<- BACK", 15, 14, 70, 32, "back");
 
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 24px 'Segoe UI', monospace";
-                ctx.textAlign = "center";
-                ctx.fillText("SETTINGS", canvas.width / 2, 65);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 22px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                ctx.fillText("SETTINGS", canvas.width / 2, 70);
 
-                let boxX = 35, boxY = 85, boxW = 330, boxH = 310;
-                ctx.fillStyle = "#133121";
-                ctx.beginPath();
-                ctx.roundRect(boxX, boxY, boxW, boxH, 12);
-                ctx.fill();
-                ctx.strokeStyle = "#52b788";
-                ctx.lineWidth = 2.5;
-                ctx.stroke();
+                let boxX = 25, boxY = 95, boxW = 310, boxH = 340;
+                ctx.fillStyle = "#133121"; ctx.beginPath(); ctx.roundRect(boxX, boxY, boxW, boxH, 12); ctx.fill();
+                ctx.strokeStyle = "#52b788"; ctx.lineWidth = 2.5; ctx.stroke();
 
-                ctx.fillStyle = "#b7e4c7";
-                ctx.font = "bold 12px 'Segoe UI', monospace";
-                ctx.textAlign = "left";
-                ctx.fillText("GMAIL CLOUD PROFILE", boxX + 20, boxY + 28);
+                ctx.fillStyle = "#b7e4c7"; ctx.font = "bold 11px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                ctx.fillText("GMAIL CLOUD PROFILE", boxX + 15, boxY + 28);
 
                 let displayEmail = window.userEmail || localStorage.getItem("flappy_user_email") || "Not Logged In";
                 let displayUser = window.username || "Guest Player";
                 let displayCountry = window.userCountry || "N/A";
 
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 12px 'Segoe UI', monospace";
-                ctx.fillText("✉ " + displayEmail, boxX + 20, boxY + 48);
-                ctx.fillText("👤 " + displayUser + " (" + displayCountry + ")", boxX + 20, boxY + 68);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 11px 'Segoe UI', monospace";
+                ctx.fillText("✉ " + displayEmail, boxX + 15, boxY + 48);
+                ctx.fillText("👤 " + displayUser + " (" + displayCountry + ")", boxX + 15, boxY + 68);
 
-                ctx.strokeStyle = "#2d6a4f";
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(boxX + 20, boxY + 82);
-                ctx.lineTo(boxX + boxW - 20, boxY + 82);
-                ctx.stroke();
+                ctx.strokeStyle = "#2d6a4f"; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(boxX + 15, boxY + 82); ctx.lineTo(boxX + boxW - 15, boxY + 82); ctx.stroke();
 
                 function drawSettingRow(label, status, yPos) {
-                    ctx.fillStyle = "#ffffff";
-                    ctx.font = "bold 15px 'Segoe UI', monospace";
-                    ctx.textAlign = "left";
-                    ctx.fillText(label, boxX + 20, yPos);
+                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 13px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                    ctx.fillText(label, boxX + 15, yPos);
 
                     let btnColor = status ? "#2d6a4f" : "#6f1d1b";
                     let txtColor = status ? "#9ef01a" : "#ff758f";
                     let txt = status ? "ON" : "OFF";
 
-                    ctx.fillStyle = btnColor;
-                    ctx.beginPath();
-                    ctx.roundRect(boxX + 215, yPos - 20, 75, 30, 6);
-                    ctx.fill();
-                    ctx.strokeStyle = txtColor;
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
+                    ctx.fillStyle = btnColor; ctx.beginPath(); ctx.roundRect(boxX + 195, yPos - 18, 65, 26, 6); ctx.fill();
+                    ctx.strokeStyle = txtColor; ctx.lineWidth = 1.5; ctx.stroke();
 
-                    ctx.fillStyle = txtColor;
-                    ctx.textAlign = "center";
-                    ctx.font = "bold 13px 'Segoe UI', monospace";
-                    ctx.fillText(txt, boxX + 252.5, yPos - 1);
+                    ctx.fillStyle = txtColor; ctx.textAlign = "center"; ctx.font = "bold 12px 'Segoe UI', monospace";
+                    ctx.fillText(txt, boxX + 227.5, yPos - 1);
                 }
 
-                drawSettingRow("Background Music", settings.music, boxY + 125);
-                drawSettingRow("Sound Effects", settings.sound, boxY + 185);
-                drawSettingRow("Vibration", settings.vibration, boxY + 245);
+                drawSettingRow("Background Music", settings.music, boxY + 130);
+                drawSettingRow("Sound Effects", settings.sound, boxY + 195);
+                drawSettingRow("Vibration", settings.vibration, boxY + 260);
                 ctx.textAlign = "left";
 
             } else if (window.gameState === "LEADERBOARD") {
-                ctx.fillStyle = "#1b4332";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+                ctx.fillStyle = "#1b4332"; ctx.fillRect(0, 0, canvas.width, canvas.height);
                 drawWoodenButton("<- BACK", 15, 14, 70, 32, "back");
 
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 24px 'Segoe UI', monospace";
-                ctx.textAlign = "center";
-                ctx.fillText("LEADERBOARD", canvas.width / 2, 60);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 22px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                ctx.fillText("LEADERBOARD", canvas.width / 2, 55);
 
-                let boxX = 25, boxY = 85, boxW = 350, boxH = 380;
-                ctx.fillStyle = "#133121";
-                ctx.beginPath();
-                ctx.roundRect(boxX, boxY, boxW, boxH, 12);
-                ctx.fill();
-                ctx.strokeStyle = "#52b788";
-                ctx.lineWidth = 2.5;
-                ctx.stroke();
+                let boxX = 15, boxY = 75, boxW = 330, boxH = 430;
+                ctx.fillStyle = "#133121"; ctx.beginPath(); ctx.roundRect(boxX, boxY, boxW, boxH, 12); ctx.fill();
+                ctx.strokeStyle = "#52b788"; ctx.lineWidth = 2.5; ctx.stroke();
 
                 if (window.isLeaderboardLoading) {
-                    ctx.fillStyle = "#ffcc00";
-                    ctx.font = "bold 16px 'Segoe UI', monospace";
-                    ctx.fillText("Loading Standings...", canvas.width / 2, boxY + 190);
+                    ctx.fillStyle = "#ffcc00"; ctx.font = "bold 15px 'Segoe UI', monospace";
+                    ctx.fillText("Loading Standings...", canvas.width / 2, boxY + 215);
                 } else if (!window.leaderboardData || window.leaderboardData.length === 0) {
-                    ctx.fillStyle = "#ffffff";
-                    ctx.font = "bold 14px 'Segoe UI', monospace";
-                    ctx.fillText("No Players Registered Yet!", canvas.width / 2, boxY + 190);
+                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 13px 'Segoe UI', monospace";
+                    ctx.fillText("No Players Registered Yet!", canvas.width / 2, boxY + 215);
                 } else {
-                    // Header
-                    ctx.fillStyle = "#ffcc00";
-                    ctx.font = "bold 12px 'Segoe UI', monospace";
-                    ctx.textAlign = "left";
-                    ctx.fillText("RANK", boxX + 15, boxY + 30);
-                    ctx.fillText("PLAYER", boxX + 65, boxY + 30);
-                    ctx.fillText("COUNTRY", boxX + 210, boxY + 30);
-                    ctx.fillText("SCORE", boxX + 290, boxY + 30);
+                    ctx.fillStyle = "#ffcc00"; ctx.font = "bold 11px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                    ctx.fillText("RANK", boxX + 12, boxY + 28);
+                    ctx.fillText("PLAYER", boxX + 55, boxY + 28);
+                    ctx.fillText("COUNTRY", boxX + 190, boxY + 28);
+                    ctx.fillText("SCORE", boxX + 270, boxY + 28);
 
-                    ctx.strokeStyle = "#2d6a4f";
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.moveTo(boxX + 10, boxY + 40);
-                    ctx.lineTo(boxX + boxW - 10, boxY + 40);
-                    ctx.stroke();
+                    ctx.strokeStyle = "#2d6a4f"; ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(boxX + 10, boxY + 38); ctx.lineTo(boxX + boxW - 10, boxY + 38); ctx.stroke();
 
-                    // Rows
-                    let rowY = boxY + 65;
+                    let rowY = boxY + 62;
                     for (let i = 0; i < window.leaderboardData.length; i++) {
                         let item = window.leaderboardData[i];
                         let isMe = (item.email && item.email === window.userEmail);
 
                         if (isMe) {
-                            ctx.fillStyle = "#2d6a4f";
-                            ctx.fillRect(boxX + 5, rowY - 18, boxW - 10, 28);
+                            ctx.fillStyle = "#2d6a4f"; ctx.fillRect(boxX + 5, rowY - 16, boxW - 10, 26);
                         }
 
                         ctx.fillStyle = isMe ? "#9ef01a" : "#ffffff";
-                        ctx.font = (isMe ? "bold " : "") + "12px 'Segoe UI', monospace";
+                        ctx.font = (isMe ? "bold " : "") + "11px 'Segoe UI', monospace";
                         ctx.textAlign = "left";
 
-                        ctx.fillText("#" + (i + 1), boxX + 15, rowY);
-                        
-                        let truncUser = item.username.length > 11 ? item.username.substring(0, 10) + ".." : item.username;
-                        ctx.fillText(truncUser, boxX + 65, rowY);
-                        
+                        ctx.fillText("#" + (i + 1), boxX + 12, rowY);
+                        let truncUser = item.username.length > 10 ? item.username.substring(0, 9) + ".." : item.username;
+                        ctx.fillText(truncUser, boxX + 55, rowY);
                         let truncCountry = item.country.length > 8 ? item.country.substring(0, 7) + ".." : item.country;
-                        ctx.fillText(truncCountry, boxX + 210, rowY);
-                        
-                        ctx.fillText(item.highScore, boxX + 290, rowY);
+                        ctx.fillText(truncCountry, boxX + 190, rowY);
+                        ctx.fillText(item.highScore, boxX + 270, rowY);
 
-                        rowY += 32;
-                        if (rowY > boxY + boxH - 20) break;
+                        rowY += 30;
+                        if (rowY > boxY + boxH - 15) break;
                     }
                 }
                 ctx.textAlign = "left";
 
             } else if (window.gameState === "STORE") {
-                ctx.fillStyle = "#1b4332";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+                ctx.fillStyle = "#1b4332"; ctx.fillRect(0, 0, canvas.width, canvas.height);
                 drawWoodenButton("<- BACK", 15, 14, 70, 32, "back");
-                drawWoodenButton("BIRDS", 90, 14, 75, 32, "tab_birds");
-                drawWoodenButton("BACKGROUNDS", 170, 14, 105, 32, "tab_bgs");
+                drawWoodenButton("BIRDS", 80, 14, 80, 32, "tab_birds");
+                drawWoodenButton("BACKGROUNDS", 168, 14, 112, 32, "tab_bgs");
 
-                let storeCoinX = 285;
-                if (coinImg.complete && coinImg.naturalWidth !== 0) {
-                    ctx.drawImage(coinImg, storeCoinX, 20, 18, 18);
-                }
-                ctx.fillStyle = "#ffcc00";
-                ctx.font = "bold 14px 'Segoe UI', monospace";
-                ctx.textAlign = "left";
-                ctx.fillText(window.coins, storeCoinX + 22, 34);
+                let storeCoinX = 290;
+                if (coinImg.complete && coinImg.naturalWidth !== 0) ctx.drawImage(coinImg, storeCoinX, 20, 16, 16);
+                ctx.fillStyle = "#ffcc00"; ctx.font = "bold 13px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                ctx.fillText(window.coins, storeCoinX + 18, 33);
 
                 let itemsList = storeTab === "BIRD" ? skinManager.skins : skinManager.backgrounds;
                 let activeIdx = storeTab === "BIRD" ? skinManager.currentIndex : skinManager.bgIndex;
@@ -1125,50 +929,34 @@
                 for (let i = 0; i < itemsList.length; i++) {
                     let col = i % 3;
                     let row = Math.floor(i / 3);
-                    let boxX = 25 + col * 122;
-                    let boxY = 62 + row * 84;
+                    let boxX = 20 + col * 108;
+                    let boxY = 65 + row * 82;
                     let item = itemsList[i];
 
                     ctx.fillStyle = activeIdx === i ? "#2d6a4f" : "#133121";
-                    ctx.beginPath();
-                    ctx.roundRect(boxX, boxY, 112, 78, 8);
-                    ctx.fill();
-                    ctx.strokeStyle = activeIdx === i ? "#9ef01a" : "#40916c";
-                    ctx.lineWidth = activeIdx === i ? 2.5 : 1.5;
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.roundRect(boxX, boxY, 102, 76, 8); ctx.fill();
+                    ctx.strokeStyle = activeIdx === i ? "#9ef01a" : "#40916c"; ctx.lineWidth = activeIdx === i ? 2.5 : 1.5; ctx.stroke();
 
                     if (storeTab === "BIRD") {
-                        skinManager.drawBirdGraphic(ctx, boxX + 56, boxY + 28, 0.7, i);
+                        skinManager.drawBirdGraphic(ctx, boxX + 51, boxY + 26, 0.65, i);
                     } else {
-                        ctx.fillStyle = item.top;
-                        ctx.fillRect(boxX + 8, boxY + 8, 96, 32);
-                        ctx.fillStyle = item.mountain;
-                        ctx.beginPath();
-                        ctx.moveTo(boxX + 8, boxY + 40);
-                        ctx.lineTo(boxX + 35, boxY + 18);
-                        ctx.lineTo(boxX + 65, boxY + 40);
-                        ctx.closePath();
-                        ctx.fill();
+                        ctx.fillStyle = item.top; ctx.fillRect(boxX + 6, boxY + 6, 90, 30);
+                        ctx.fillStyle = item.mountain; ctx.beginPath();
+                        ctx.moveTo(boxX + 6, boxY + 36); ctx.lineTo(boxX + 30, boxY + 16); ctx.lineTo(boxX + 60, boxY + 36);
+                        ctx.closePath(); ctx.fill();
                     }
 
-                    ctx.fillStyle = "#fff";
-                    ctx.font = "9px 'Segoe UI', monospace";
-                    ctx.textAlign = "center";
-                    ctx.fillText(item.name, boxX + 56, boxY + 54);
+                    ctx.fillStyle = "#fff"; ctx.font = "8px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                    ctx.fillText(item.name, boxX + 51, boxY + 50);
 
                     if (item.unlocked) {
-                        ctx.fillStyle = activeIdx === i ? "#9ef01a" : "#b7e4c7";
-                        ctx.font = "bold 9px 'Segoe UI', monospace";
-                        ctx.fillText(activeIdx === i ? "[EQUIPPED]" : "OWNED", boxX + 56, boxY + 69);
+                        ctx.fillStyle = activeIdx === i ? "#9ef01a" : "#b7e4c7"; ctx.font = "bold 8px 'Segoe UI', monospace";
+                        ctx.fillText(activeIdx === i ? "[EQUIPPED]" : "OWNED", boxX + 51, boxY + 66);
                     } else {
-                        let priceX = boxX + 30;
-                        if (coinImg.complete && coinImg.naturalWidth !== 0) {
-                            ctx.drawImage(coinImg, priceX, boxY + 59, 11, 11);
-                        }
-                        ctx.fillStyle = "#ffcc00";
-                        ctx.font = "bold 11px 'Segoe UI', monospace";
-                        ctx.textAlign = "left";
-                        ctx.fillText(item.price, priceX + 15, boxY + 69);
+                        let priceX = boxX + 25;
+                        if (coinImg.complete && coinImg.naturalWidth !== 0) ctx.drawImage(coinImg, priceX, boxY + 57, 10, 10);
+                        ctx.fillStyle = "#ffcc00"; ctx.font = "bold 10px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                        ctx.fillText(item.price, priceX + 13, boxY + 66);
                     }
                     ctx.textAlign = "left";
                 }
@@ -1176,69 +964,46 @@
             } else {
                 drawActiveBackground(dt);
 
-                pipes.forEach(p => {
-                    drawPipe(p.x, p.top, p.bottom);
-                });
-
+                pipes.forEach(p => { drawPipe(p.x, p.top, p.bottom); });
                 drawInGameBird(bird.x, bird.y);
 
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 28px 'Segoe UI', monospace";
-                ctx.textAlign = "center";
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 26px 'Segoe UI', monospace"; ctx.textAlign = "center";
                 ctx.fillText(score, canvas.width / 2, 50);
 
-                if (coinImg.complete && coinImg.naturalWidth !== 0) {
-                    ctx.drawImage(coinImg, 20, 16, 24, 24);
-                }
-                ctx.fillStyle = "#ffcc00";
-                ctx.font = "bold 18px 'Segoe UI', monospace";
-                ctx.textAlign = "left";
-                ctx.fillText(window.coins, 48, 34);
+                if (coinImg.complete && coinImg.naturalWidth !== 0) ctx.drawImage(coinImg, 16, 16, 22, 22);
+                ctx.fillStyle = "#ffcc00"; ctx.font = "bold 16px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                ctx.fillText(window.coins, 42, 33);
 
                 if (window.gameState === "GAMEOVER") {
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    let pX = 80, pY = 130, pW = 240, pH = 280;
-                    ctx.fillStyle = "#1b4332";
-                    ctx.beginPath();
-                    ctx.roundRect(pX, pY, pW, pH, 15);
-                    ctx.fill();
-                    ctx.strokeStyle = "#52b788";
-                    ctx.lineWidth = 4;
-                    ctx.stroke();
+                    let pX = 70, pY = 160, pW = 220, pH = 260;
+                    ctx.fillStyle = "#1b4332"; ctx.beginPath(); ctx.roundRect(pX, pY, pW, pH, 15); ctx.fill();
+                    ctx.strokeStyle = "#52b788"; ctx.lineWidth = 3; ctx.stroke();
 
-                    ctx.fillStyle = "#ff007f";
-                    ctx.font = "bold 24px 'Segoe UI', monospace";
-                    ctx.textAlign = "center";
-                    ctx.fillText("GAME OVER", canvas.width / 2, pY + 45);
+                    ctx.fillStyle = "#ff007f"; ctx.font = "bold 22px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                    ctx.fillText("GAME OVER", canvas.width / 2, pY + 40);
 
-                    ctx.fillStyle = "#ffffff";
-                    ctx.font = "16px 'Segoe UI', monospace";
-                    ctx.fillText("Score: " + score, canvas.width / 2, pY + 85);
-                    ctx.fillText("Best: " + window.highScore, canvas.width / 2, pY + 115);
+                    ctx.fillStyle = "#ffffff"; ctx.font = "14px 'Segoe UI', monospace";
+                    ctx.fillText("Score: " + score, canvas.width / 2, pY + 80);
+                    ctx.fillText("Best: " + window.highScore, canvas.width / 2, pY + 110);
 
-                    drawWoodenButton("PLAY AGAIN", 110, pY + 130, 180, 40, "retry");
-                    drawWoodenButton("MAIN MENU", 110, pY + 185, 180, 40, "popup_menu");
-
+                    drawWoodenButton("PLAY AGAIN", 90, pY + 140, 180, 40, "retry");
+                    drawWoodenButton("MAIN MENU", 90, pY + 195, 180, 40, "popup_menu");
                     ctx.textAlign = "left";
                 }
             }
         }
 
         let lastTime = performance.now();
-
         function gameLoop(currentTime) {
             let dt = (currentTime - lastTime) / 1000;
             lastTime = currentTime;
-
             if (dt > 0.1) dt = 0.1;
-
             update(dt);
             draw(dt);
             requestAnimationFrame(gameLoop);
         }
-
         requestAnimationFrame(gameLoop);
     </script>
 </body>

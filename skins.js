@@ -49,7 +49,6 @@ class SkinManager {
         return this.backgrounds[this.bgIndex];
     }
 
-    // NEW: Cloud par save karne ke liye sirf indices return karega
     getUnlockedSkins() {
         let unlocked = [];
         for (let i = 0; i < this.skins.length; i++) {
@@ -58,7 +57,6 @@ class SkinManager {
         return unlocked;
     }
 
-    // NEW: Cloud par save karne ke liye sirf bg indices return karega
     getUnlockedBgs() {
         let unlocked = [];
         for (let i = 0; i < this.backgrounds.length; i++) {
@@ -67,7 +65,6 @@ class SkinManager {
         return unlocked;
     }
     
-    // NEW: Cloud se load karte waqt indices ko use karke unlock karega
     loadUnlockedSkins(unlockedIndices) {
         if (!Array.isArray(unlockedIndices)) return;
         for (let i = 0; i < this.skins.length; i++) {
@@ -75,7 +72,6 @@ class SkinManager {
         }
     }
 
-    // NEW: Cloud se load karte waqt bg indices ko use karke unlock karega
     loadUnlockedBgs(unlockedIndices) {
         if (!Array.isArray(unlockedIndices)) return;
         for (let i = 0; i < this.backgrounds.length; i++) {
@@ -116,7 +112,6 @@ class SkinManager {
 
         let skin = this.skins[skinIndex];
 
-        // 1. Tail Feathers
         ctx.fillStyle = skin.wing;
         ctx.beginPath();
         ctx.moveTo(-10, 0);
@@ -130,7 +125,6 @@ class SkinManager {
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        // 2. Streamlined Oval Body
         ctx.fillStyle = skin.color;
         ctx.beginPath();
         ctx.ellipse(0, 0, 16, 12, -0.1, 0, Math.PI * 2);
@@ -139,13 +133,11 @@ class SkinManager {
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // 3. Belly highlight
         ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
         ctx.beginPath();
         ctx.ellipse(-2, 3, 10, 7, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // 4. Animated Wing
         ctx.save();
         ctx.translate(-3, 3);
         ctx.rotate(wingAngle);
@@ -158,7 +150,6 @@ class SkinManager {
         ctx.stroke();
         ctx.restore();
 
-        // 5. Eye
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
         ctx.arc(7, -4, 5, 0, Math.PI * 2);
@@ -177,7 +168,6 @@ class SkinManager {
         ctx.arc(10, -5, 0.7, 0, Math.PI * 2);
         ctx.fill();
 
-        // 6. Beak
         ctx.fillStyle = "#ff9f1c";
         ctx.beginPath();
         ctx.moveTo(13, -5);

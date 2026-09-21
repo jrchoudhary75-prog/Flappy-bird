@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Ultimate Skins Edition</title>
+    <title>Flappy Bird - Persistent Gmail Cloud Sync</title>
     <style>
         body {
             margin: 0;
@@ -38,10 +38,11 @@
     </style>
     <script src="skins.js"></script>
 
-    <!-- Firebase SDK Modular CDN -->
+    <!-- Firebase SDK Modular CDN (Auth & Firestore) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBYTo_Flsgdj_3ktQ3FB704xgbTSppLpt0",
@@ -54,49 +55,150 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
+
+        window.db = db;
+        window.auth = auth;
+
+        // Check if user session already exists locally or on cloud
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                window.userEmail = user.email;
+                await window.loadCloudGameData(user.email, true);
+            } else {
+                // Check if local storage has previously saved email to bypass login on reopen
+                let savedEmail = localStorage.getItem("flappy_user_email");
+                if (savedEmail) {
+                    window.userEmail = savedEmail;
+                    await window.loadCloudGameData(savedEmail, true);
+                } else {
+                    window.gameState = "LOGIN";
+                }
+            }
+        });
+
+        // Cloud Data Load Function
+        window.loadCloudGameData = async function(email, checkProfile = false) {
+            try {
+                const docRef = doc(db, "flappy_users", email);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    let data = docSnap.data();
+                    window.highScore = data.highScore || 0;
+                    window.coins = data.coins !== undefined ? data.coins : 150;
+                    window.username = data.username || "";
+                    window.userCountry = data.userCountry || "";
+                    if (data.unlockedSkins && window.skinManager) {
+                        window.skinManager.unlockedSkins = data.unlockedSkins;
+                    }
+                    if (data.unlockedBgs && window.skinManager) {
+                        window.skinManager.unlockedBgs = data.unlockedBgs;
+                    }
+
+                    localStorage.setItem("flappy_user_email", email);
+
+                    if (checkProfile) {
+                        if (!window.username || !window.userCountry) {
+                            window.gameState = "PROFILE_SETUP";
+                        } else {
+                            window.gameState = "MENU";
+                        }
+                    }
+                } else {
+                    window.highScore = 0;
+                    window.coins = 150;
+                    window.username = "";
+                    window.userCountry = "";
+                    if (checkProfile) {
+                        window.gameState = "PROFILE_SETUP";
+                    }
+                }
+            } catch (e) {
+                console.error("Error loading from cloud: ", e);
+                window.gameState = "MENU";
+            }
+        };
+
+        // Check Username Uniqueness in Firestore
+        window.isUsernameUnique = async function(usernameToCheck) {
+            try {
+                const usersRef = collection(db, "flappy_users");
+                const q = query(usersRef, where("username", "==", usernameToCheck));
+                const querySnapshot = await getDocs(q);
+                return querySnapshot.empty; // True if unique (no one else has it)
+            } catch (e) {
+                console.error("Error checking username uniqueness:", e);
+                return true; // fallback
+            }
+        };
+
+        // Cloud Data Save Function
+        window.saveCloudGameData = async function() {
+            if (!window.userEmail) return;
+            try {
+                const docRef = doc(db, "flappy_users", window.userEmail);
+                await setDoc(docRef, {
+                    email: window.userEmail,
+                    highScore: window.highScore,
+                    coins: window.coins,
+                    username: window.username,
+                    userCountry: window.userCountry,
+                    unlockedSkins: window.skinManager ? window.skinManager.unlockedSkins : [0],
+                    unlockedBgs: window.skinManager ? window.skinManager.unlockedBgs : [0],
+                    updatedAt: new Date()
+                }, { merge: true });
+            } catch (e) {
+                console.error("Error saving to cloud: ", e);
+            }
+        };
 
         window.realGoogleLogin = function() {
             signInWithPopup(auth, provider)
                 .then((result) => {
                     const user = result.user;
                     window.userEmail = user.email;
-                    localStorage.setItem("flappyUserEmail", window.userEmail);
-                    if (typeof saveGameProgress === "function") {
-                        saveGameProgress();
-                    }
-                    window.gameState = "MENU";
+                    localStorage.setItem("flappy_user_email", user.email);
+                    window.loadCloudGameData(user.email, true);
                 })
                 .catch((error) => {
-                    console.warn("Google Sign-In restricted on local file. Switching to Guest mode.");
-                    // Fallback to Guest if local file blocks popup
-                    window.userEmail = "guest_player@local";
-                    localStorage.setItem("flappyUserEmail", window.userEmail);
-                    window.gameState = "MENU";
+                    console.warn("Google Sign-In restricted. Using offline cloud simulation mode.");
+                    let dummyEmail = "player_" + Math.floor(Math.random() * 100000) + "@gmail.com";
+                    window.userEmail = dummyEmail;
+                    localStorage.setItem("flappy_user_email", dummyEmail);
+                    window.loadCloudGameData(dummyEmail, true);
                 });
         };
     </script>
 </head>
 <body>
 
-    <h2>Flappy Bird - Ultimate Edition</h2>
+    <h2>Flappy Bird - Persistent Cloud Sync</h2>
     <canvas id="gameCanvas" width="400" height="500"></canvas>
     <div class="instructions">
-        Click or Spacebar to play! (Make sure 'coin.png', 'setting.png' and 'skins.js' are in the same folder)
+        Click or Spacebar to play! (Skipping login on game reopen)
     </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        let gameState = "LOGIN"; 
+        let gameState = "LOADING"; 
         let score = 0;
-        let highScore = localStorage.getItem("flappyHighScore") || 0;
-        let coins = parseInt(localStorage.getItem("flappyCoins")) || 150;
-        let userEmail = localStorage.getItem("flappyUserEmail") || "";
+        let highScore = 0;
+        let coins = 150;
+        let userEmail = "";
+        let username = "";
+        let userCountry = "";
 
         window.gameState = gameState;
-        window.userEmail = userEmail;
+        window.highScore = highScore;
+        window.coins = coins;
+
+        const skinManager = new SkinManager();
+        window.skinManager = skinManager;
+
+        const validCountries = ["india", "usa", "uk", "canada", "australia", "germany", "france", "japan", "brazil", "russia", "italy", "spain", "china", "south korea", "mexico"];
 
         let settings = {
             music: true,
@@ -180,12 +282,6 @@
             }
         }
 
-        window.saveGameProgress = function() {
-            localStorage.setItem("flappyHighScore", highScore);
-            localStorage.setItem("flappyCoins", coins);
-            localStorage.setItem("flappyUserEmail", window.userEmail);
-        }
-
         const coinImg = new Image();
         coinImg.src = "coin.png";
 
@@ -193,14 +289,12 @@
         settingImg.src = "setting.png";
 
         let clouds = [
-            { x: 50, y: 80, scale: 0.8, speed: 0.3 },
-            { x: 220, y: 120, scale: 1.1, speed: 0.5 },
-            { x: 380, y: 60, scale: 0.6, speed: 0.2 }
+            { x: 50, y: 80, scale: 0.8, speed: 30 },
+            { x: 220, y: 120, scale: 1.1, speed: 50 },
+            { x: 380, y: 60, scale: 0.6, speed: 20 }
         ];
 
         let mountainX = 0;
-
-        const skinManager = new SkinManager();
         let storeTab = "BIRD";
 
         let bird = {
@@ -208,8 +302,8 @@
             y: 200,
             width: 32,
             height: 24,
-            gravity: 0.35,
-            lift: -7.5,
+            gravity: 1200,
+            lift: -360,
             velocity: 0,
             wingAngle: 0
         };
@@ -219,35 +313,43 @@
         let pipeCapHeight = 24;
         let pipeCapExtra = 6;
         let pipeGap = 140;
-        let pipeSpeed = 2.5;
+        let pipeSpeed = 180;
         let spawnTimer = 0;
 
         let clickedButton = null;
         let clickAnimTimer = 0;
         let idleAnimCounter = 0;
 
-        function spawnPipe() {
-            let minHeight = 40;
-            let maxHeight = canvas.height - pipeGap - 90;
-            let topHeight = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+        let inputActiveField = "username";
+        let inputUsernameVal = "";
+        let inputCountryVal = "";
+        let setupErrorMsg = "";
 
-            pipes.push({
-                x: canvas.width,
-                top: topHeight,
-                bottom: canvas.height - topHeight - pipeGap,
-                passed: false
-            });
-        }
+        window.addEventListener("keydown", async (e) => {
+            if (window.gameState === "PROFILE_SETUP") {
+                if (e.key === "Tab") {
+                    e.preventDefault();
+                    inputActiveField = inputActiveField === "username" ? "country" : "username";
+                    playSound("click");
+                } else if (e.key === "Backspace") {
+                    if (inputActiveField === "username") {
+                        inputUsernameVal = inputUsernameVal.slice(0, -1);
+                    } else {
+                        inputCountryVal = inputCountryVal.slice(0, -1);
+                    }
+                    playSound("click");
+                } else if (e.key.length === 1 && /^[a-zA-Z0-9_ ]$/.test(e.key)) {
+                    if (inputActiveField === "username" && inputUsernameVal.length < 15) {
+                        inputUsernameVal += e.key;
+                        playSound("click");
+                    } else if (inputActiveField === "country" && inputCountryVal.length < 20) {
+                        inputCountryVal += e.key;
+                        playSound("click");
+                    }
+                }
+                return;
+            }
 
-        function resetGame() {
-            bird.y = 200;
-            bird.velocity = 0;
-            pipes = [];
-            score = 0;
-            spawnTimer = 0;
-        }
-
-        window.addEventListener("keydown", (e) => {
             if (e.code === "Space") {
                 if (window.gameState === "PLAYING") {
                     bird.velocity = bird.lift;
@@ -262,13 +364,12 @@
             }
         });
 
-        canvas.addEventListener("click", (e) => {
+        canvas.addEventListener("click", async (e) => {
             let rect = canvas.getBoundingClientRect();
             let mouseX = e.clientX - rect.left;
             let mouseY = e.clientY - rect.top;
 
             if (window.gameState === "LOGIN") {
-                // Google Login Button
                 if (mouseX >= 60 && mouseX <= 340 && mouseY >= 230 && mouseY <= 285) {
                     triggerClick("google_login", () => {
                         if (typeof window.realGoogleLogin === "function") {
@@ -276,11 +377,52 @@
                         }
                     });
                 }
-                // Play as Guest Button
                 if (mouseX >= 60 && mouseX <= 340 && mouseY >= 300 && mouseY <= 355) {
                     triggerClick("guest_login", () => {
-                        window.userEmail = "guest_player@local";
-                        localStorage.setItem("flappyUserEmail", window.userEmail);
+                        let guestEmail = "player_" + Math.floor(Math.random() * 100000) + "@gmail.com";
+                        userEmail = guestEmail;
+                        window.userEmail = guestEmail;
+                        localStorage.setItem("flappy_user_email", guestEmail);
+                        window.loadCloudGameData(guestEmail, true);
+                    });
+                }
+            } else if (window.gameState === "PROFILE_SETUP") {
+                if (mouseX >= 70 && mouseX <= 330 && mouseY >= 170 && mouseY <= 215) {
+                    inputActiveField = "username";
+                    playSound("click");
+                }
+                if (mouseX >= 70 && mouseX <= 330 && mouseY >= 250 && mouseY <= 295) {
+                    inputActiveField = "country";
+                    playSound("click");
+                }
+                if (mouseX >= 100 && mouseX <= 300 && mouseY >= 340 && mouseY <= 390) {
+                    let cleanUser = inputUsernameVal.trim();
+                    let cleanCountry = inputCountryVal.trim().toLowerCase();
+
+                    if (cleanUser.length < 3) {
+                        setupErrorMsg = "Username must be at least 3 chars!";
+                        return;
+                    }
+                    if (!validCountries.includes(cleanCountry)) {
+                        setupErrorMsg = "Enter a valid country (e.g. India, USA)";
+                        return;
+                    }
+
+                    setupErrorMsg = "Checking uniqueness...";
+                    let unique = await window.isUsernameUnique(cleanUser);
+                    if (!unique) {
+                        setupErrorMsg = "Username already taken! Try another.";
+                        return;
+                    }
+
+                    username = cleanUser;
+                    window.username = username;
+                    userCountry = cleanCountry.charAt(0).toUpperCase() + cleanCountry.slice(1);
+                    window.userCountry = userCountry;
+                    setupErrorMsg = "";
+
+                    await window.saveCloudGameData();
+                    triggerClick("save_profile", () => {
                         window.gameState = "MENU";
                     });
                 }
@@ -359,14 +501,16 @@
                                 let result = skinManager.selectOrBuySkin(i, coins);
                                 if (result.success) {
                                     coins -= result.coinsSpent;
-                                    saveGameProgress();
+                                    window.coins = coins;
+                                    window.saveCloudGameData();
                                     playSound("click");
                                 }
                             } else {
                                 let result = skinManager.selectOrBuyBackground(i, coins);
                                 if (result.success) {
                                     coins -= result.coinsSpent;
-                                    saveGameProgress();
+                                    window.coins = coins;
+                                    window.saveCloudGameData();
                                     playSound("click");
                                 }
                             }
@@ -393,7 +537,18 @@
                 }
             }
         });
+        function onLeaderboardClick() {
+    // Check karein ki user guest hai ya nahi
+    let isGuest = checkIfUserIsGuest(); 
 
+    if (isGuest) {
+        // Agar guest hai, toh Google login ka option dikhayein
+        showGoogleLoginPrompt();
+    } else {
+        // Agar logged-in hai, toh leaderboard open karein
+        openLeaderboardScreen();
+    }
+}
         function triggerClick(btnName, action) {
             clickedButton = btnName;
             clickAnimTimer = 8;
@@ -444,7 +599,7 @@
             ctx.textBaseline = "alphabetic";
         }
 
-        function drawActiveBackground() {
+        function drawActiveBackground(dt) {
             let bg = skinManager.getCurrentBackground();
             
             let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -455,7 +610,7 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             if (window.gameState === "PLAYING" || window.gameState === "MENU" || window.gameState === "SETTINGS" || window.gameState === "STORE" || window.gameState === "LEADERBOARD") {
-                mountainX -= 0.5;
+                mountainX -= 30 * dt;
                 if (mountainX <= -400) mountainX = 0;
             }
 
@@ -476,7 +631,7 @@
 
             ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
             clouds.forEach(c => {
-                c.x -= c.speed;
+                c.x -= c.speed * dt;
                 if (c.x < -60) c.x = canvas.width + 60;
                 drawSingleCloud(c.x, c.y, c.scale);
             });
@@ -497,6 +652,98 @@
             ctx.arc(26, 0, 16, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
+        }
+
+        function spawnPipe() {
+            let minHeight = 40;
+            let maxHeight = canvas.height - pipeGap - 90;
+            let topHeight = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+
+            pipes.push({
+                x: canvas.width,
+                top: topHeight,
+                bottom: canvas.height - topHeight - pipeGap,
+                passed: false
+            });
+        }
+
+        function resetGame() {
+            bird.y = 200;
+            bird.velocity = 0;
+            pipes = [];
+            score = 0;
+            spawnTimer = 0;
+        }
+
+        function update(dt) {
+            if (clickAnimTimer > 0) clickAnimTimer--;
+            idleAnimCounter += 0.05;
+
+            if (window.gameState === "PLAYING" || window.gameState === "MENU" || window.gameState === "LOGIN") {
+                musicTimer++;
+                if (musicTimer > 50) {
+                    playBackgroundMusicTick();
+                    musicTimer = 0;
+                }
+            }
+
+            if (bird.wingAngle < 0) {
+                bird.wingAngle += 0.15;
+                if (bird.wingAngle > 0) bird.wingAngle = 0;
+            }
+
+            if (window.gameState !== "PLAYING") return;
+
+            bird.velocity += bird.gravity * dt;
+            bird.y += bird.velocity * dt;
+
+            if (bird.y + bird.height >= canvas.height - 45) {
+                bird.y = canvas.height - 45 - bird.height;
+                window.gameState = "GAMEOVER";
+                playSound("gameover");
+                triggerVibration();
+            }
+            if (bird.y <= 0) {
+                bird.y = 0;
+                bird.velocity = 0;
+            }
+
+            spawnTimer += dt;
+            if (spawnTimer > 1.7) {
+                spawnPipe();
+                spawnTimer = 0;
+            }
+
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                let p = pipes[i];
+                p.x -= pipeSpeed * dt;
+
+                if (
+                    bird.x < p.x + pipeWidth &&
+                    bird.x + bird.width > p.x &&
+                    (bird.y < p.top || bird.y + bird.height > canvas.height - p.bottom)
+                ) {
+                    window.gameState = "GAMEOVER";
+                    playSound("gameover");
+                    triggerVibration();
+                }
+
+                if (!p.passed && p.x + pipeWidth < bird.x) {
+                    score += 1;
+                    coins += 1;
+                    window.coins = coins;
+                    p.passed = true;
+                    if (score > highScore) {
+                        highScore = score;
+                        window.highScore = highScore;
+                    }
+                    window.saveCloudGameData();
+                }
+
+                if (p.x + pipeWidth < 0) {
+                    pipes.splice(i, 1);
+                }
+            }
         }
 
         function drawPipe(x, topHeight, bottomHeight) {
@@ -525,87 +772,30 @@
         function drawInGameBird(x, y) {
             ctx.save();
             ctx.translate(x + bird.width / 2, y + bird.height / 2);
-            let rot = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, bird.velocity * 0.08));
+            let rot = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, bird.velocity * 0.001));
             ctx.rotate(rot);
 
             skinManager.drawBirdGraphic(ctx, 0, 0, 1.1, skinManager.currentIndex, bird.wingAngle);
             ctx.restore();
         }
 
-        function update() {
-            if (clickAnimTimer > 0) clickAnimTimer--;
-            idleAnimCounter += 0.05;
-
-            if (window.gameState === "PLAYING" || window.gameState === "MENU" || window.gameState === "LOGIN") {
-                musicTimer++;
-                if (musicTimer > 50) {
-                    playBackgroundMusicTick();
-                    musicTimer = 0;
-                }
-            }
-
-            if (bird.wingAngle < 0) {
-                bird.wingAngle += 0.15;
-                if (bird.wingAngle > 0) bird.wingAngle = 0;
-            }
-
-            if (window.gameState !== "PLAYING") return;
-
-            bird.velocity += bird.gravity;
-            bird.y += bird.velocity;
-
-            if (bird.y + bird.height >= canvas.height - 45) {
-                bird.y = canvas.height - 45 - bird.height;
-                window.gameState = "GAMEOVER";
-                playSound("gameover");
-                triggerVibration();
-            }
-            if (bird.y <= 0) {
-                bird.y = 0;
-                bird.velocity = 0;
-            }
-
-            spawnTimer++;
-            if (spawnTimer > 100) {
-                spawnPipe();
-                spawnTimer = 0;
-            }
-
-            for (let i = pipes.length - 1; i >= 0; i--) {
-                let p = pipes[i];
-                p.x -= pipeSpeed;
-
-                if (
-                    bird.x < p.x + pipeWidth &&
-                    bird.x + bird.width > p.x &&
-                    (bird.y < p.top || bird.y + bird.height > canvas.height - p.bottom)
-                ) {
-                    window.gameState = "GAMEOVER";
-                    playSound("gameover");
-                    triggerVibration();
-                }
-
-                if (!p.passed && p.x + pipeWidth < bird.x) {
-                    score += 1;
-                    coins += 1;
-                    p.passed = true;
-                    if (score > highScore) {
-                        highScore = score;
-                    }
-                    saveGameProgress();
-                }
-
-                if (p.x + pipeWidth < 0) {
-                    pipes.splice(i, 1);
-                }
-            }
-        }
-
-        function draw() {
+        function draw(dt) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            if (window.gameState === "LOADING") {
+                drawActiveBackground(dt);
+                ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 18px 'Segoe UI', monospace";
+                ctx.textAlign = "center";
+                ctx.fillText("Checking Cloud Session...", canvas.width / 2, canvas.height / 2);
+                ctx.textAlign = "left";
+                return;
+            }
+
             if (window.gameState === "LOGIN") {
-                drawActiveBackground();
+                drawActiveBackground(dt);
 
                 ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -615,13 +805,12 @@
                 ctx.textAlign = "center";
                 ctx.shadowColor = "#000";
                 ctx.shadowBlur = 8;
-                ctx.fillText("WELCOME TO FLAPPY", canvas.width / 2, 110);
+                ctx.fillText("FLAPPY CLOUD SYNC", canvas.width / 2, 110);
                 ctx.font = "13px 'Segoe UI', monospace";
                 ctx.fillStyle = "#b7e4c7";
-                ctx.fillText("Choose login method to start", canvas.width / 2, 140);
+                ctx.fillText("First-time setup: Sign in with Gmail", canvas.width / 2, 140);
                 ctx.shadowBlur = 0;
 
-                // 1. Google Login Button
                 let btnX = 60, btnY = 230, btnW = 280, btnH = 50;
                 ctx.fillStyle = "#ffffff";
                 ctx.beginPath();
@@ -638,9 +827,8 @@
 
                 ctx.fillStyle = "#333333";
                 ctx.font = "bold 14px 'Segoe UI', sans-serif";
-                ctx.fillText("Sign in with Google", btnX + 60, btnY + 30);
+                ctx.fillText("Sign in with Google (Gmail)", btnX + 60, btnY + 30);
 
-                // 2. Play as Guest Button
                 let guestY = 300;
                 ctx.fillStyle = "#2d6a4f";
                 ctx.beginPath();
@@ -653,11 +841,70 @@
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 14px 'Segoe UI', sans-serif";
                 ctx.textAlign = "center";
-                ctx.fillText("Play as Guest (Instant Start)", btnX + btnW / 2, guestY + 30);
+                ctx.fillText("Quick Cloud Play", btnX + btnW / 2, guestY + 30);
+                ctx.textAlign = "left";
+
+            } else if (window.gameState === "PROFILE_SETUP") {
+                drawActiveBackground(dt);
+                ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 22px 'Segoe UI', monospace";
+                ctx.textAlign = "center";
+                ctx.fillText("SETUP UNIQUE PROFILE", canvas.width / 2, 55);
+
+                ctx.fillStyle = "#b7e4c7";
+                ctx.font = "12px 'Segoe UI', monospace";
+                ctx.fillText("Linked Email: " + userEmail, canvas.width / 2, 78);
+
+                let uBoxX = 70, uBoxY = 170, uBoxW = 260, uBoxH = 45;
+                ctx.fillStyle = inputActiveField === "username" ? "#1f4e38" : "#133121";
+                ctx.beginPath();
+                ctx.roundRect(uBoxX, uBoxY, uBoxW, uBoxH, 8);
+                ctx.fill();
+                ctx.strokeStyle = inputActiveField === "username" ? "#9ef01a" : "#52b788";
+                ctx.lineWidth = inputActiveField === "username" ? 2.5 : 1.5;
+                ctx.stroke();
+
+                ctx.fillStyle = "#88ab8e";
+                ctx.font = "11px 'Segoe UI', monospace";
+                ctx.textAlign = "left";
+                ctx.fillText("Username (Must be Unique):", uBoxX, uBoxY - 8);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "15px 'Segoe UI', monospace";
+                ctx.fillText(inputUsernameVal + (inputActiveField === "username" && Math.floor(idleAnimCounter * 10) % 2 === 0 ? "|" : ""), uBoxX + 15, uBoxY + 28);
+
+                let cBoxX = 70, cBoxY = 250, cBoxW = 260, cBoxH = 45;
+                ctx.fillStyle = inputActiveField === "country" ? "#1f4e38" : "#133121";
+                ctx.beginPath();
+                ctx.roundRect(cBoxX, cBoxY, cBoxW, cBoxH, 8);
+                ctx.fill();
+                ctx.strokeStyle = inputActiveField === "country" ? "#9ef01a" : "#52b788";
+                ctx.lineWidth = inputActiveField === "country" ? 2.5 : 1.5;
+                ctx.stroke();
+
+                ctx.fillStyle = "#88ab8e";
+                ctx.font = "11px 'Segoe UI', monospace";
+                ctx.fillText("Country (e.g. India, USA):", cBoxX, cBoxY - 8);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "15px 'Segoe UI', monospace";
+                ctx.fillText(inputCountryVal + (inputActiveField === "country" && Math.floor(idleAnimCounter * 10) % 2 === 0 ? "|" : ""), cBoxX + 15, cBoxY + 28);
+
+                if (setupErrorMsg) {
+                    ctx.fillStyle = "#ff758f";
+                    ctx.font = "bold 11px 'Segoe UI', monospace";
+                    ctx.textAlign = "center";
+                    ctx.fillText(setupErrorMsg, canvas.width / 2, 318);
+                }
+
+                drawWoodenButton("SUBMIT & START", 100, 340, 200, 50, "save_profile");
                 ctx.textAlign = "left";
 
             } else if (window.gameState === "MENU") {
-                drawActiveBackground();
+                drawActiveBackground(dt);
 
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 32px 'Segoe UI', monospace";
@@ -713,17 +960,18 @@
                 ctx.fillStyle = "#b7e4c7";
                 ctx.font = "bold 12px 'Segoe UI', monospace";
                 ctx.textAlign = "left";
-                ctx.fillText("CONNECTED ACCOUNT", boxX + 20, boxY + 30);
+                ctx.fillText("GMAIL CLOUD PROFILE", boxX + 20, boxY + 28);
 
                 ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 13px 'Segoe UI', monospace";
-                ctx.fillText("📧 " + (window.userEmail || "Not Logged In"), boxX + 20, boxY + 55);
+                ctx.font = "bold 12px 'Segoe UI', monospace";
+                ctx.fillText("✉ " + userEmail, boxX + 20, boxY + 48);
+                ctx.fillText("👤 " + username + " (" + userCountry + ")", boxX + 20, boxY + 68);
 
                 ctx.strokeStyle = "#2d6a4f";
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
-                ctx.moveTo(boxX + 20, boxY + 72);
-                ctx.lineTo(boxX + boxW - 20, boxY + 72);
+                ctx.moveTo(boxX + 20, boxY + 82);
+                ctx.lineTo(boxX + boxW - 20, boxY + 82);
                 ctx.stroke();
 
                 function drawSettingRow(label, status, yPos) {
@@ -750,9 +998,9 @@
                     ctx.fillText(txt, boxX + 252.5, yPos - 1);
                 }
 
-                drawSettingRow("Background Music", settings.music, boxY + 115);
-                drawSettingRow("Sound Effects", settings.sound, boxY + 175);
-                drawSettingRow("Vibration", settings.vibration, boxY + 235);
+                drawSettingRow("Background Music", settings.music, boxY + 125);
+                drawSettingRow("Sound Effects", settings.sound, boxY + 185);
+                drawSettingRow("Vibration", settings.vibration, boxY + 245);
                 ctx.textAlign = "left";
 
             } else if (window.gameState === "LEADERBOARD") {
@@ -777,19 +1025,20 @@
 
                 ctx.fillStyle = "#ffcc00";
                 ctx.font = "bold 16px 'Segoe UI', monospace";
-                ctx.fillText("🇮🇳 India Rank & High Score", canvas.width / 2, boxY + 40);
+                ctx.fillText("🏆 Cloud Standings", canvas.width / 2, boxY + 40);
 
                 ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 28px 'Segoe UI', monospace";
-                ctx.fillText("Score: " + highScore, canvas.width / 2, boxY + 90);
+                ctx.font = "bold 22px 'Segoe UI', monospace";
+                ctx.fillText(username, canvas.width / 2, boxY + 80);
 
                 ctx.fillStyle = "#9ef01a";
-                ctx.font = "bold 15px 'Segoe UI', monospace";
-                ctx.fillText("Rank: Local Mode", canvas.width / 2, boxY + 135);
+                ctx.font = "bold 14px 'Segoe UI', monospace";
+                ctx.fillText("Country: " + userCountry, canvas.width / 2, boxY + 115);
+                ctx.fillText("Best Score: " + highScore, canvas.width / 2, boxY + 145);
 
                 ctx.fillStyle = "#b7e4c7";
-                ctx.font = "12px 'Segoe UI', monospace";
-                ctx.fillText("Connected: " + (window.userEmail ? window.userEmail.split('@')[0] : "Guest"), canvas.width / 2, boxY + 175);
+                ctx.font = "11px 'Segoe UI', monospace";
+                ctx.fillText("Synced live with Gmail Cloud", canvas.width / 2, boxY + 185);
 
             } else if (window.gameState === "STORE") {
                 ctx.fillStyle = "#1b4332";
@@ -863,7 +1112,7 @@
                 }
 
             } else {
-                drawActiveBackground();
+                drawActiveBackground(dt);
 
                 pipes.forEach(p => {
                     drawPipe(p.x, p.top, p.bottom);
@@ -915,13 +1164,20 @@
             }
         }
 
-        function gameLoop() {
-            update();
-            draw();
+        let lastTime = performance.now();
+
+        function gameLoop(currentTime) {
+            let dt = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+
+            if (dt > 0.1) dt = 0.1;
+
+            update(dt);
+            draw(dt);
             requestAnimationFrame(gameLoop);
         }
 
-        gameLoop();
+        requestAnimationFrame(gameLoop);
     </script>
 </body>
 </html>

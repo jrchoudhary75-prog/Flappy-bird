@@ -14,13 +14,14 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             overflow: hidden;
         }
         canvas {
             width: 100vw;
-            max-width: 400px;
-            height: auto;
+            height: 100vh;
+            max-width: 450px;
+            max-height: 90vh;
             aspect-ratio: 360 / 640;
             border: 4px solid #1b4332;
             border-radius: 20px;
@@ -236,7 +237,7 @@
     <canvas id="gameCanvas" width="360" height="640"></canvas>
     <input type="text" id="mobileInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" dir="ltr" style="direction: ltr; text-align: left;" />
     <div class="instructions">
-        Tap screen or press Spacebar to play!
+        Press Spacebar or Click to play!
     </div>
 
     <script>
@@ -421,6 +422,9 @@
                 } else if (window.gameState === "GAMEOVER") {
                     window.gameState = "MENU";
                     playSound("click");
+                } else if (window.gameState === "MENU") {
+                    resetGame(); window.gameState = "PLAYING";
+                    e.preventDefault();
                 }
             }
         });

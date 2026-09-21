@@ -34,6 +34,9 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
             background: #1b4332;
             touch-action: none;
+            /* Crisp text rendering fix */
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
         }
         .instructions {
             margin-top: 6px;
@@ -54,7 +57,7 @@
     <!-- Firebase SDK Modular CDN (Auth & Firestore) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, collection, query, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -98,7 +101,7 @@
                 if (docSnap.exists()) {
                     let data = docSnap.data();
                     window.highScore = data.highScore || 0;
-                    window.coins = data.coins !== undefined ? data.coins : 150;
+                    window.coins = data.coins !== undefined ? data.coins : 0; // Default coins 0
                     window.username = data.username || "";
                     window.userCountry = data.userCountry || "";
                     
@@ -126,7 +129,7 @@
                     }
                 } else {
                     window.highScore = 0;
-                    window.coins = 150;
+                    window.coins = 0; // Default coins 0 for new user
                     window.username = "";
                     window.userCountry = "";
                     if (checkProfile) {
@@ -219,13 +222,26 @@
                     window.loadCloudGameData(dummyEmail, true);
                 });
         };
+
+        window.logoutUser = function() {
+            signOut(auth).then(() => {
+                localStorage.removeItem("flappy_user_email");
+                window.userEmail = null;
+                window.username = "";
+                window.userCountry = "";
+                window.gameState = "LOGIN";
+            }).catch((error) => {
+                localStorage.removeItem("flappy_user_email");
+                window.userEmail = null;
+                window.gameState = "LOGIN";
+            });
+        };
     </script>
 </head>
 <body>
 
     <h2>Flappy Bird - Mobile Edition</h2>
     <canvas id="gameCanvas" width="360" height="640"></canvas>
-    <!-- Added dir="auto" to support Urdu / Right-to-Left writing smoothly -->
     <input type="text" id="mobileInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" dir="auto" />
     <div class="instructions">
         Tap screen or press Spacebar to play!
@@ -234,12 +250,16 @@
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+        
+        // Font crispness fix
+        ctx.imageSmoothingEnabled = false;
+
         const mobileInput = document.getElementById("mobileInput");
 
         let gameState = "LOADING"; 
         let score = 0;
         let highScore = 0;
-        let coins = 150;
+        let coins = 0; // Default coins set to 0
 
         window.gameState = gameState;
         window.highScore = highScore;
@@ -248,7 +268,26 @@
         const skinManager = new SkinManager();
         window.skinManager = skinManager;
 
-        const validCountries = ["india", "usa", "uk", "canada", "australia", "germany", "france", "japan", "brazil", "russia", "italy", "spain", "china", "south korea", "mexico"];
+        const allWorldCountries = [
+            "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
+            "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia",
+            "Bosnia", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon", "Canada",
+            "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica", "Croatia", "Cuba", "Cyprus",
+            "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt", "El Salvador", "Eritrea", "Estonia",
+            "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana",
+            "Greece", "Grenada", "Guatemala", "Guinea", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India",
+            "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan",
+            "Kenya", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein",
+            "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Mauritania", "Mauritius",
+            "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia",
+            "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway", "Oman",
+            "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal",
+            "Qatar", "Romania", "Russia", "Rwanda", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore",
+            "Slovakia", "Slovenia", "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname",
+            "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga",
+            "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States",
+            "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+        ];
 
         let settings = { music: true, sound: true, vibration: true };
         let audioCtx = null;
@@ -429,13 +468,19 @@
                     playSound("click");
                 } else if (mouseX >= 80 && mouseX <= 280 && mouseY >= 420 && mouseY <= 470) {
                     let cleanUser = inputUsernameVal.trim();
-                    let cleanCountry = inputCountryVal.trim().toLowerCase();
+                    let cleanCountryInput = inputCountryVal.trim().toLowerCase();
 
                     if (cleanUser.length < 3) {
                         setupErrorMsg = "Username min 3 chars!";
                         return;
                     }
-                    // Allow custom countries as well or validate
+
+                    let matchedCountry = allWorldCountries.find(c => c.toLowerCase() === cleanCountryInput);
+                    if (!matchedCountry) {
+                        setupErrorMsg = "Enter a valid world country!";
+                        return;
+                    }
+
                     setupErrorMsg = "Checking uniqueness...";
                     let unique = await window.isUsernameUnique(cleanUser);
                     if (!unique) {
@@ -444,7 +489,7 @@
                     }
 
                     window.username = cleanUser;
-                    window.userCountry = cleanCountry.charAt(0).toUpperCase() + cleanCountry.slice(1);
+                    window.userCountry = matchedCountry;
                     setupErrorMsg = "";
                     mobileInput.blur();
 
@@ -479,23 +524,31 @@
                     triggerClick("back", () => { window.gameState = "MENU"; });
                     return;
                 }
-                if (mouseX >= 220 && mouseX <= 300 && mouseY >= 230 && mouseY <= 270) {
+                if (mouseX >= 220 && mouseX <= 300 && mouseY >= 220 && mouseY <= 260) {
                     settings.music = !settings.music; playSound("click");
                 }
-                if (mouseX >= 220 && mouseX <= 300 && mouseY >= 295 && mouseY <= 335) {
+                if (mouseX >= 220 && mouseX <= 300 && mouseY >= 280 && mouseY <= 320) {
                     settings.sound = !settings.sound; playSound("click");
                 }
-                if (mouseX >= 220 && mouseX <= 300 && mouseY >= 360 && mouseY <= 400) {
+                if (mouseX >= 220 && mouseX <= 300 && mouseY >= 340 && mouseY <= 380) {
                     settings.vibration = !settings.vibration; playSound("click");
                 }
+                if (mouseX >= 45 && mouseX <= 315 && mouseY >= 415 && mouseY <= 455) {
+                    triggerClick("logout", () => {
+                        if (typeof window.logoutUser === "function") window.logoutUser();
+                    });
+                }
             } else if (window.gameState === "LEADERBOARD" || window.gameState === "STORE") {
+                // Back button click check
                 if (mouseX >= 15 && mouseX <= 85 && mouseY >= 14 && mouseY <= 46) {
                     triggerClick("back", () => { window.gameState = "MENU"; });
+                    return;
                 }
 
                 if (window.gameState === "STORE") {
-                    if (mouseX >= 80 && mouseX <= 160 && mouseY >= 14 && mouseY <= 46) { storeTab = "BIRD"; playSound("click"); }
-                    if (mouseX >= 168 && mouseX <= 280 && mouseY >= 14 && mouseY <= 46) { storeTab = "BACKGROUND"; playSound("click"); }
+                    // Non-overlapping tab clicks check
+                    if (mouseX >= 95 && mouseX <= 175 && mouseY >= 14 && mouseY <= 46) { storeTab = "BIRD"; playSound("click"); return; }
+                    if (mouseX >= 183 && mouseX <= 310 && mouseY >= 14 && mouseY <= 46) { storeTab = "BACKGROUND"; playSound("click"); return; }
 
                     let itemsList = storeTab === "BIRD" ? skinManager.skins : skinManager.backgrounds;
                     for (let i = 0; i < itemsList.length; i++) {
@@ -565,8 +618,8 @@
             ctx.stroke();
 
             ctx.fillStyle = "#ffffff";
-            let fontSize = Math.round(12 * scale);
-            ctx.font = `bold ${fontSize}px 'Segoe UI', monospace`;
+            let fontSize = Math.round(11 * scale);
+            ctx.font = `bold ${fontSize}px 'Segoe UI', Tahoma, sans-serif`;
             ctx.textAlign = "center"; ctx.textBaseline = "middle";
             ctx.fillText(text, currentX + currentW / 2, currentY + currentH / 2);
             ctx.textBaseline = "alphabetic";
@@ -726,7 +779,7 @@
             if (window.gameState === "LOADING") {
                 drawActiveBackground(dt);
                 ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 16px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 15px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                 ctx.fillText("Connecting Cloud...", canvas.width / 2, canvas.height / 2);
                 ctx.textAlign = "left";
                 return;
@@ -736,9 +789,9 @@
                 drawActiveBackground(dt);
                 ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 22px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 21px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                 ctx.fillText("FLAPPY CLOUD SYNC", canvas.width / 2, 140);
-                ctx.font = "12px 'Segoe UI', monospace"; ctx.fillStyle = "#b7e4c7";
+                ctx.font = "12px 'Segoe UI', sans-serif"; ctx.fillStyle = "#b7e4c7";
                 ctx.fillText("Sign in to sync your score & skin", canvas.width / 2, 170);
 
                 let btnX = 40, btnY = 280, btnW = 280, btnH = 55;
@@ -760,9 +813,9 @@
                 drawActiveBackground(dt);
                 ctx.fillStyle = "rgba(0, 0, 0, 0.85)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 20px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 19px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                 ctx.fillText("SETUP PROFILE", canvas.width / 2, 60);
-                ctx.fillStyle = "#b7e4c7"; ctx.font = "11px 'Segoe UI', monospace";
+                ctx.fillStyle = "#b7e4c7"; ctx.font = "11px 'Segoe UI', sans-serif";
                 ctx.fillText("Email: " + (window.userEmail || "Guest"), canvas.width / 2, 85);
 
                 let uBoxX = 50, uBoxY = 210, uBoxW = 260, uBoxH = 45;
@@ -770,10 +823,10 @@
                 ctx.beginPath(); ctx.roundRect(uBoxX, uBoxY, uBoxW, uBoxH, 8); ctx.fill();
                 ctx.strokeStyle = inputActiveField === "username" ? "#9ef01a" : "#52b788"; ctx.lineWidth = 2; ctx.stroke();
 
-                ctx.fillStyle = "#88ab8e"; ctx.font = "11px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                ctx.fillStyle = "#88ab8e"; ctx.font = "11px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
                 ctx.fillText("Username (Unique):", uBoxX, uBoxY - 8);
                 
-                ctx.fillStyle = "#ffffff"; ctx.font = "14px 'Segoe UI', monospace";
+                ctx.fillStyle = "#ffffff"; ctx.font = "14px 'Segoe UI', sans-serif";
                 let displayUser = inputUsernameVal + (inputActiveField === "username" && Math.floor(idleAnimCounter * 10) % 2 === 0 ? "|" : "");
                 ctx.fillText(displayUser, uBoxX + 15, uBoxY + 28);
 
@@ -782,15 +835,15 @@
                 ctx.beginPath(); ctx.roundRect(cBoxX, cBoxY, cBoxW, cBoxH, 8); ctx.fill();
                 ctx.strokeStyle = inputActiveField === "country" ? "#9ef01a" : "#52b788"; ctx.stroke();
 
-                ctx.fillStyle = "#88ab8e"; ctx.font = "11px 'Segoe UI', monospace";
-                ctx.fillText("Country (e.g. India, USA):", cBoxX, cBoxY - 8);
+                ctx.fillStyle = "#88ab8e"; ctx.font = "11px 'Segoe UI', sans-serif";
+                ctx.fillText("World Country (e.g. India, Pakistan):", cBoxX, cBoxY - 8);
                 
-                ctx.fillStyle = "#ffffff"; ctx.font = "14px 'Segoe UI', monospace";
+                ctx.fillStyle = "#ffffff"; ctx.font = "14px 'Segoe UI', sans-serif";
                 let displayCountry = inputCountryVal + (inputActiveField === "country" && Math.floor(idleAnimCounter * 10) % 2 === 0 ? "|" : "");
                 ctx.fillText(displayCountry, cBoxX + 15, cBoxY + 28);
 
                 if (setupErrorMsg) {
-                    ctx.fillStyle = "#ff758f"; ctx.font = "bold 11px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                    ctx.fillStyle = "#ff758f"; ctx.font = "bold 11px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                     ctx.fillText(setupErrorMsg, canvas.width / 2, 380);
                 }
 
@@ -800,7 +853,7 @@
             } else if (window.gameState === "MENU") {
                 drawActiveBackground(dt);
 
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 28px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 27px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                 ctx.shadowColor = "#000"; ctx.shadowBlur = 6;
                 ctx.fillText("FLAPPY BIRD", canvas.width / 2, 140);
                 ctx.shadowBlur = 0;
@@ -809,7 +862,7 @@
                     ctx.drawImage(settingImg, 17, 17, 26, 26);
                 } else {
                     ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(30, 30, 14, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = "#fff"; ctx.font = "bold 13px monospace"; ctx.textAlign = "center"; ctx.fillText("⚙", 30, 34);
+                    ctx.fillStyle = "#fff"; ctx.font = "bold 13px sans-serif"; ctx.textAlign = "center"; ctx.fillText("⚙", 30, 34);
                 }
 
                 drawWoodenButton("PLAY GAME", 80, 250, 200, 55, "play");
@@ -818,31 +871,31 @@
 
             } else if (window.gameState === "SETTINGS") {
                 ctx.fillStyle = "#1b4332"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                drawWoodenButton("<- BACK", 15, 14, 70, 32, "back");
+                drawWoodenButton("<- BACK", 15, 14, 75, 32, "back");
 
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 22px 'Segoe UI', monospace"; ctx.textAlign = "center";
-                ctx.fillText("SETTINGS", canvas.width / 2, 70);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 21px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
+                ctx.fillText("SETTINGS", canvas.width / 2, 60);
 
-                let boxX = 25, boxY = 95, boxW = 310, boxH = 340;
+                let boxX = 25, boxY = 85, boxW = 310, boxH = 390;
                 ctx.fillStyle = "#133121"; ctx.beginPath(); ctx.roundRect(boxX, boxY, boxW, boxH, 12); ctx.fill();
                 ctx.strokeStyle = "#52b788"; ctx.lineWidth = 2.5; ctx.stroke();
 
-                ctx.fillStyle = "#b7e4c7"; ctx.font = "bold 11px 'Segoe UI', monospace"; ctx.textAlign = "left";
-                ctx.fillText("GMAIL CLOUD PROFILE", boxX + 15, boxY + 28);
+                ctx.fillStyle = "#b7e4c7"; ctx.font = "bold 11px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
+                ctx.fillText("GMAIL CLOUD PROFILE", boxX + 15, boxY + 24);
 
                 let displayEmail = window.userEmail || localStorage.getItem("flappy_user_email") || "Not Logged In";
                 let displayUser = window.username || "Guest Player";
                 let displayCountry = window.userCountry || "N/A";
 
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 11px 'Segoe UI', monospace";
-                ctx.fillText("✉ " + displayEmail, boxX + 15, boxY + 48);
-                ctx.fillText("👤 " + displayUser + " (" + displayCountry + ")", boxX + 15, boxY + 68);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 11px 'Segoe UI', sans-serif";
+                ctx.fillText("✉ " + displayEmail, boxX + 15, boxY + 44);
+                ctx.fillText("👤 " + displayUser + " (" + displayCountry + ")", boxX + 15, boxY + 62);
 
                 ctx.strokeStyle = "#2d6a4f"; ctx.lineWidth = 1;
-                ctx.beginPath(); ctx.moveTo(boxX + 15, boxY + 82); ctx.lineTo(boxX + boxW - 15, boxY + 82); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(boxX + 15, boxY + 74); ctx.lineTo(boxX + boxW - 15, boxY + 74); ctx.stroke();
 
                 function drawSettingRow(label, status, yPos) {
-                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 13px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 12px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
                     ctx.fillText(label, boxX + 15, yPos);
 
                     let btnColor = status ? "#2d6a4f" : "#6f1d1b";
@@ -852,20 +905,23 @@
                     ctx.fillStyle = btnColor; ctx.beginPath(); ctx.roundRect(boxX + 195, yPos - 18, 65, 26, 6); ctx.fill();
                     ctx.strokeStyle = txtColor; ctx.lineWidth = 1.5; ctx.stroke();
 
-                    ctx.fillStyle = txtColor; ctx.textAlign = "center"; ctx.font = "bold 12px 'Segoe UI', monospace";
+                    ctx.fillStyle = txtColor; ctx.textAlign = "center"; ctx.font = "bold 11px 'Segoe UI', sans-serif";
                     ctx.fillText(txt, boxX + 227.5, yPos - 1);
                 }
 
-                drawSettingRow("Background Music", settings.music, boxY + 130);
-                drawSettingRow("Sound Effects", settings.sound, boxY + 195);
-                drawSettingRow("Vibration", settings.vibration, boxY + 260);
+                drawSettingRow("Background Music", settings.music, boxY + 115);
+                drawSettingRow("Sound Effects", settings.sound, boxY + 175);
+                drawSettingRow("Vibration", settings.vibration, boxY + 235);
+
+                drawWoodenButton("LOGOUT / SWITCH ACCOUNT", boxX + 20, boxY + 310, boxW - 40, 40, "logout");
+
                 ctx.textAlign = "left";
 
             } else if (window.gameState === "LEADERBOARD") {
                 ctx.fillStyle = "#1b4332"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                drawWoodenButton("<- BACK", 15, 14, 70, 32, "back");
+                drawWoodenButton("<- BACK", 15, 14, 75, 32, "back");
 
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 22px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 21px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                 ctx.fillText("LEADERBOARD", canvas.width / 2, 55);
 
                 let boxX = 15, boxY = 75, boxW = 330, boxH = 430;
@@ -873,13 +929,13 @@
                 ctx.strokeStyle = "#52b788"; ctx.lineWidth = 2.5; ctx.stroke();
 
                 if (window.isLeaderboardLoading) {
-                    ctx.fillStyle = "#ffcc00"; ctx.font = "bold 15px 'Segoe UI', monospace";
+                    ctx.fillStyle = "#ffcc00"; ctx.font = "bold 14px 'Segoe UI', sans-serif";
                     ctx.fillText("Loading Standings...", canvas.width / 2, boxY + 215);
                 } else if (!window.leaderboardData || window.leaderboardData.length === 0) {
-                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 13px 'Segoe UI', monospace";
+                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 12px 'Segoe UI', sans-serif";
                     ctx.fillText("No Players Registered Yet!", canvas.width / 2, boxY + 215);
                 } else {
-                    ctx.fillStyle = "#ffcc00"; ctx.font = "bold 11px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                    ctx.fillStyle = "#ffcc00"; ctx.font = "bold 11px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
                     ctx.fillText("RANK", boxX + 12, boxY + 28);
                     ctx.fillText("PLAYER", boxX + 55, boxY + 28);
                     ctx.fillText("COUNTRY", boxX + 190, boxY + 28);
@@ -898,7 +954,7 @@
                         }
 
                         ctx.fillStyle = isMe ? "#9ef01a" : "#ffffff";
-                        ctx.font = (isMe ? "bold " : "") + "11px 'Segoe UI', monospace";
+                        ctx.font = (isMe ? "bold " : "") + "11px 'Segoe UI', sans-serif";
                         ctx.textAlign = "left";
 
                         ctx.fillText("#" + (i + 1), boxX + 12, rowY);
@@ -916,13 +972,15 @@
 
             } else if (window.gameState === "STORE") {
                 ctx.fillStyle = "#1b4332"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Non-overlapping distinct buttons for Back, Birds, and Backgrounds
                 drawWoodenButton("<- BACK", 15, 14, 70, 32, "back");
-                drawWoodenButton("BIRDS", 80, 14, 80, 32, "tab_birds");
-                drawWoodenButton("BACKGROUNDS", 168, 14, 112, 32, "tab_bgs");
+                drawWoodenButton("BIRDS", 95, 14, 80, 32, "tab_birds");
+                drawWoodenButton("BACKGROUNDS", 183, 14, 127, 32, "tab_bgs");
 
                 let storeCoinX = 290;
                 if (coinImg.complete && coinImg.naturalWidth !== 0) ctx.drawImage(coinImg, storeCoinX, 20, 16, 16);
-                ctx.fillStyle = "#ffcc00"; ctx.font = "bold 13px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                ctx.fillStyle = "#ffcc00"; ctx.font = "bold 12px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
                 ctx.fillText(window.coins, storeCoinX + 18, 33);
 
                 let itemsList = storeTab === "BIRD" ? skinManager.skins : skinManager.backgrounds;
@@ -948,16 +1006,16 @@
                         ctx.closePath(); ctx.fill();
                     }
 
-                    ctx.fillStyle = "#fff"; ctx.font = "8px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                    ctx.fillStyle = "#fff"; ctx.font = "8px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                     ctx.fillText(item.name, boxX + 51, boxY + 50);
 
                     if (item.unlocked) {
-                        ctx.fillStyle = activeIdx === i ? "#9ef01a" : "#b7e4c7"; ctx.font = "bold 8px 'Segoe UI', monospace";
+                        ctx.fillStyle = activeIdx === i ? "#9ef01a" : "#b7e4c7"; ctx.font = "bold 8px 'Segoe UI', sans-serif";
                         ctx.fillText(activeIdx === i ? "[EQUIPPED]" : "OWNED", boxX + 51, boxY + 66);
                     } else {
                         let priceX = boxX + 25;
                         if (coinImg.complete && coinImg.naturalWidth !== 0) ctx.drawImage(coinImg, priceX, boxY + 57, 10, 10);
-                        ctx.fillStyle = "#ffcc00"; ctx.font = "bold 10px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                        ctx.fillStyle = "#ffcc00"; ctx.font = "bold 10px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
                         ctx.fillText(item.price, priceX + 13, boxY + 66);
                     }
                     ctx.textAlign = "left";
@@ -969,11 +1027,11 @@
                 pipes.forEach(p => { drawPipe(p.x, p.top, p.bottom); });
                 drawInGameBird(bird.x, bird.y);
 
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 26px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 25px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                 ctx.fillText(score, canvas.width / 2, 50);
 
                 if (coinImg.complete && coinImg.naturalWidth !== 0) ctx.drawImage(coinImg, 16, 16, 22, 22);
-                ctx.fillStyle = "#ffcc00"; ctx.font = "bold 16px 'Segoe UI', monospace"; ctx.textAlign = "left";
+                ctx.fillStyle = "#ffcc00"; ctx.font = "bold 15px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
                 ctx.fillText(window.coins, 42, 33);
 
                 if (window.gameState === "GAMEOVER") {
@@ -983,10 +1041,10 @@
                     ctx.fillStyle = "#1b4332"; ctx.beginPath(); ctx.roundRect(pX, pY, pW, pH, 15); ctx.fill();
                     ctx.strokeStyle = "#52b788"; ctx.lineWidth = 3; ctx.stroke();
 
-                    ctx.fillStyle = "#ff007f"; ctx.font = "bold 22px 'Segoe UI', monospace"; ctx.textAlign = "center";
+                    ctx.fillStyle = "#ff007f"; ctx.font = "bold 21px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                     ctx.fillText("GAME OVER", canvas.width / 2, pY + 40);
 
-                    ctx.fillStyle = "#ffffff"; ctx.font = "14px 'Segoe UI', monospace";
+                    ctx.fillStyle = "#ffffff"; ctx.font = "13px 'Segoe UI', sans-serif";
                     ctx.fillText("Score: " + score, canvas.width / 2, pY + 80);
                     ctx.fillText("Best: " + window.highScore, canvas.width / 2, pY + 110);
 

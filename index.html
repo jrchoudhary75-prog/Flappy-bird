@@ -25,10 +25,10 @@
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
         }
         canvas {
-            width: 360px;
-            height: 640px;
-            max-height: 78vh;
-            aspect-ratio: 9 / 16;
+            width: 100vw;
+            max-width: 400px;
+            height: auto;
+            aspect-ratio: 360 / 640;
             border: 4px solid #1b4332;
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
@@ -225,7 +225,6 @@
 
     <h2>Flappy Bird - Mobile Edition</h2>
     <canvas id="gameCanvas" width="360" height="640"></canvas>
-    <!-- Disabled autocomplete & autocorrect so 's' doesn't autofill old text -->
     <input type="text" id="mobileInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
     <div class="instructions">
         Tap screen or press Spacebar to play!
@@ -348,10 +347,9 @@
         let inputCountryVal = "";
         let setupErrorMsg = "";
 
-        // Handle Keyboard input when setting up profile (Only when mobile input is NOT focused to prevent duplication)
         window.addEventListener("keydown", async (e) => {
             if (window.gameState === "PROFILE_SETUP") {
-                if (document.activeElement === mobileInput) return; // Let mobile input handle it
+                if (document.activeElement === mobileInput) return;
 
                 if (e.key === "Tab") {
                     e.preventDefault();
@@ -387,7 +385,6 @@
             }
         });
 
-        // Mobile hidden input listener to capture software keyboard typing cleanly
         mobileInput.addEventListener("input", (e) => {
             if (window.gameState === "PROFILE_SETUP") {
                 let val = mobileInput.value;
@@ -399,13 +396,11 @@
             }
         });
 
-        // Precise scale-adjusted click coordinate calculation
+        // Fixed coordinate scaling mapping for all buttons & panels
         canvas.addEventListener("click", async (e) => {
             let rect = canvas.getBoundingClientRect();
-            let scaleX = canvas.width / rect.width;
-            let scaleY = canvas.height / rect.height;
-            let mouseX = (e.clientX - rect.left) * scaleX;
-            let mouseY = (e.clientY - rect.top) * scaleY;
+            let mouseX = ((e.clientX - rect.left) / rect.width) * canvas.width;
+            let mouseY = ((e.clientY - rect.top) / rect.height) * canvas.height;
 
             if (window.gameState === "LOGIN") {
                 if (mouseX >= 40 && mouseX <= 320 && mouseY >= 280 && mouseY <= 335) {
@@ -462,11 +457,11 @@
                         window.gameState = "MENU";
                     });
                 } else {
-                    mobileInput.focus(); // Keep keyboard open if tapping setup area
+                    mobileInput.focus();
                 }
             } else if (window.gameState === "MENU") {
                 let distToGear = Math.hypot(mouseX - 30, mouseY - 30);
-                if (distToGear <= 22) {
+                if (distToGear <= 25) {
                     triggerClick("gear", () => { window.gameState = "SETTINGS"; });
                     return;
                 }
@@ -531,9 +526,11 @@
                 triggerVibration();
             } else if (window.gameState === "GAMEOVER") {
                 let pY = 160;
+                // PLAY AGAIN Button Check
                 if (mouseX >= 90 && mouseX <= 270 && mouseY >= pY + 140 && mouseY <= pY + 180) {
                     triggerClick("retry", () => { resetGame(); window.gameState = "PLAYING"; });
                 }
+                // MAIN MENU Button Check
                 if (mouseX >= 90 && mouseX <= 270 && mouseY >= pY + 195 && mouseY <= pY + 235) {
                     triggerClick("popup_menu", () => { window.gameState = "MENU"; });
                 }

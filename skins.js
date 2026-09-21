@@ -49,6 +49,40 @@ class SkinManager {
         return this.backgrounds[this.bgIndex];
     }
 
+    // NEW: Cloud par save karne ke liye sirf indices return karega
+    getUnlockedSkins() {
+        let unlocked = [];
+        for (let i = 0; i < this.skins.length; i++) {
+            if (this.skins[i].unlocked) unlocked.push(i);
+        }
+        return unlocked;
+    }
+
+    // NEW: Cloud par save karne ke liye sirf bg indices return karega
+    getUnlockedBgs() {
+        let unlocked = [];
+        for (let i = 0; i < this.backgrounds.length; i++) {
+            if (this.backgrounds[i].unlocked) unlocked.push(i);
+        }
+        return unlocked;
+    }
+    
+    // NEW: Cloud se load karte waqt indices ko use karke unlock karega
+    loadUnlockedSkins(unlockedIndices) {
+        if (!Array.isArray(unlockedIndices)) return;
+        for (let i = 0; i < this.skins.length; i++) {
+             this.skins[i].unlocked = unlockedIndices.includes(i);
+        }
+    }
+
+    // NEW: Cloud se load karte waqt bg indices ko use karke unlock karega
+    loadUnlockedBgs(unlockedIndices) {
+        if (!Array.isArray(unlockedIndices)) return;
+        for (let i = 0; i < this.backgrounds.length; i++) {
+             this.backgrounds[i].unlocked = unlockedIndices.includes(i);
+        }
+    }
+
     selectOrBuySkin(index, currentCoins) {
         let skin = this.skins[index];
         if (skin.unlocked) {

@@ -89,11 +89,19 @@
                     window.coins = data.coins !== undefined ? data.coins : 150;
                     window.username = data.username || "";
                     window.userCountry = data.userCountry || "";
+                    
+                    // FIXED: Load skins & bgs safely using new functions
                     if (data.unlockedSkins && window.skinManager) {
-                        window.skinManager.unlockedSkins = data.unlockedSkins;
+                        window.skinManager.loadUnlockedSkins(data.unlockedSkins);
                     }
                     if (data.unlockedBgs && window.skinManager) {
-                        window.skinManager.unlockedBgs = data.unlockedBgs;
+                        window.skinManager.loadUnlockedBgs(data.unlockedBgs);
+                    }
+                    if (data.activeSkinIndex !== undefined && window.skinManager) {
+                       window.skinManager.currentIndex = data.activeSkinIndex;
+                    }
+                    if (data.activeBgIndex !== undefined && window.skinManager) {
+                       window.skinManager.bgIndex = data.activeBgIndex;
                     }
 
                     localStorage.setItem("flappy_user_email", email);
@@ -144,8 +152,11 @@
                     coins: window.coins,
                     username: window.username,
                     userCountry: window.userCountry,
-                    unlockedSkins: window.skinManager ? window.skinManager.unlockedSkins : [0],
-                    unlockedBgs: window.skinManager ? window.skinManager.unlockedBgs : [0],
+                    // FIXED: Use methods to get valid arrays
+                    unlockedSkins: window.skinManager ? window.skinManager.getUnlockedSkins() : [0],
+                    unlockedBgs: window.skinManager ? window.skinManager.getUnlockedBgs() : [0],
+                    activeSkinIndex: window.skinManager ? window.skinManager.currentIndex : 0,
+                    activeBgIndex: window.skinManager ? window.skinManager.bgIndex : 0,
                     updatedAt: new Date()
                 }, { merge: true });
             } catch (e) {
@@ -537,18 +548,9 @@
                 }
             }
         });
-        function onLeaderboardClick() {
-    // Check karein ki user guest hai ya nahi
-    let isGuest = checkIfUserIsGuest(); 
 
-    if (isGuest) {
-        // Agar guest hai, toh Google login ka option dikhayein
-        showGoogleLoginPrompt();
-    } else {
-        // Agar logged-in hai, toh leaderboard open karein
-        openLeaderboardScreen();
-    }
-}
+        // FIXED: The dead function `onLeaderboardClick` has been removed completely
+
         function triggerClick(btnName, action) {
             clickedButton = btnName;
             clickAnimTimer = 8;

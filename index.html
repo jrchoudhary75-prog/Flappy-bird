@@ -42,7 +42,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBYTo_Flsgdj_3ktQ3FB704xgbTSppLpt0",
@@ -60,6 +60,8 @@
 
         window.db = db;
         window.auth = auth;
+        window.leaderboardData = [];
+        window.isLeaderboardLoading = false;
 
         // Check if user session already exists locally or on cloud
         onAuthStateChanged(auth, async (user) => {
@@ -67,7 +69,6 @@
                 window.userEmail = user.email;
                 await window.loadCloudGameData(user.email, true);
             } else {
-                // Check if local storage has previously saved email to bypass login on reopen
                 let savedEmail = localStorage.getItem("flappy_user_email");
                 if (savedEmail) {
                     window.userEmail = savedEmail;
@@ -90,7 +91,6 @@
                     window.username = data.username || "";
                     window.userCountry = data.userCountry || "";
                     
-                    // FIXED: Load skins & bgs safely using new functions
                     if (data.unlockedSkins && window.skinManager) {
                         window.skinManager.loadUnlockedSkins(data.unlockedSkins);
                     }
@@ -134,10 +134,10 @@
                 const usersRef = collection(db, "flappy_users");
                 const q = query(usersRef, where("username", "==", usernameToCheck));
                 const querySnapshot = await getDocs(q);
-                return querySnapshot.empty; // True if unique (no one else has it)
+                return querySnapshot.empty;
             } catch (e) {
                 console.error("Error checking username uniqueness:", e);
-                return true; // fallback
+                return true;
             }
         };
 
@@ -152,7 +152,6 @@
                     coins: window.coins,
                     username: window.username,
                     userCountry: window.userCountry,
-                    // FIXED: Use methods to get valid arrays
                     unlockedSkins: window.skinManager ? window.skinManager.getUnlockedSkins() : [0],
                     unlockedBgs: window.skinManager ? window.skinManager.getUnlockedBgs() : [0],
                     activeSkinIndex: window.skinManager ? window.skinManager.currentIndex : 0,
@@ -161,6 +160,33 @@
                 }, { merge: true });
             } catch (e) {
                 console.error("Error saving to cloud: ", e);
+            }
+        };
+
+        // Fetch Global Leaderboard List
+        window.fetchLeaderboard = async function() {
+            window.isLeaderboardLoading = true;
+            try {
+                const usersRef = collection(db, "flappy_users");
+                const q = query(usersRef, orderBy("highScore", "desc"), limit(10));
+                const querySnapshot = await getDocs(q);
+                let list = [];
+                querySnapshot.forEach((docSnap) => {
+                    let d = docSnap.data();
+                    if (d.username) {
+                        list.push({
+                            username: d.username,
+                            country: d.userCountry || "N/A",
+                            highScore: d.highScore || 0,
+                            email: d.email
+                        });
+                    }
+                });
+                window.leaderboardData = list;
+            } catch (e) {
+                console.error("Error fetching leaderboard:", e);
+            } finally {
+                window.isLeaderboardLoading = false;
             }
         };
 
@@ -198,9 +224,6 @@
         let score = 0;
         let highScore = 0;
         let coins = 150;
-        let userEmail = "";
-        let username = "";
-        let userCountry = "";
 
         window.gameState = gameState;
         window.highScore = highScore;
@@ -391,7 +414,6 @@
                 if (mouseX >= 60 && mouseX <= 340 && mouseY >= 300 && mouseY <= 355) {
                     triggerClick("guest_login", () => {
                         let guestEmail = "player_" + Math.floor(Math.random() * 100000) + "@gmail.com";
-                        userEmail = guestEmail;
                         window.userEmail = guestEmail;
                         localStorage.setItem("flappy_user_email", guestEmail);
                         window.loadCloudGameData(guestEmail, true);
@@ -426,10 +448,8 @@
                         return;
                     }
 
-                    username = cleanUser;
-                    window.username = username;
-                    userCountry = cleanCountry.charAt(0).toUpperCase() + cleanCountry.slice(1);
-                    window.userCountry = userCountry;
+                    window.username = cleanUser;
+                    window.userCountry = cleanCountry.charAt(0).toUpperCase() + cleanCountry.slice(1);
                     setupErrorMsg = "";
 
                     await window.saveCloudGameData();
@@ -461,6 +481,9 @@
                 if (mouseX >= 100 && mouseX <= 300 && mouseY >= 325 && mouseY <= 375) {
                     triggerClick("leaderboard", () => {
                         window.gameState = "LEADERBOARD";
+                        if (typeof window.fetchLeaderboard === "function") {
+                            window.fetchLeaderboard();
+                        }
                     });
                 }
             } else if (window.gameState === "SETTINGS") {
@@ -509,18 +532,16 @@
 
                         if (mouseX >= boxX && mouseX <= boxX + 112 && mouseY >= boxY && mouseY <= boxY + 78) {
                             if (storeTab === "BIRD") {
-                                let result = skinManager.selectOrBuySkin(i, coins);
+                                let result = skinManager.selectOrBuySkin(i, window.coins);
                                 if (result.success) {
-                                    coins -= result.coinsSpent;
-                                    window.coins = coins;
+                                    window.coins -= result.coinsSpent;
                                     window.saveCloudGameData();
                                     playSound("click");
                                 }
                             } else {
-                                let result = skinManager.selectOrBuyBackground(i, coins);
+                                let result = skinManager.selectOrBuyBackground(i, window.coins);
                                 if (result.success) {
-                                    coins -= result.coinsSpent;
-                                    window.coins = coins;
+                                    window.coins -= result.coinsSpent;
                                     window.saveCloudGameData();
                                     playSound("click");
                                 }
@@ -548,8 +569,6 @@
                 }
             }
         });
-
-        // FIXED: The dead function `onLeaderboardClick` has been removed completely
 
         function triggerClick(btnName, action) {
             clickedButton = btnName;
@@ -732,12 +751,10 @@
 
                 if (!p.passed && p.x + pipeWidth < bird.x) {
                     score += 1;
-                    coins += 1;
-                    window.coins = coins;
+                    window.coins += 1;
                     p.passed = true;
-                    if (score > highScore) {
-                        highScore = score;
-                        window.highScore = highScore;
+                    if (score > window.highScore) {
+                        window.highScore = score;
                     }
                     window.saveCloudGameData();
                 }
@@ -858,7 +875,7 @@
 
                 ctx.fillStyle = "#b7e4c7";
                 ctx.font = "12px 'Segoe UI', monospace";
-                ctx.fillText("Linked Email: " + userEmail, canvas.width / 2, 78);
+                ctx.fillText("Linked Email: " + (window.userEmail || "Guest User"), canvas.width / 2, 78);
 
                 let uBoxX = 70, uBoxY = 170, uBoxW = 260, uBoxH = 45;
                 ctx.fillStyle = inputActiveField === "username" ? "#1f4e38" : "#133121";
@@ -964,10 +981,14 @@
                 ctx.textAlign = "left";
                 ctx.fillText("GMAIL CLOUD PROFILE", boxX + 20, boxY + 28);
 
+                let displayEmail = window.userEmail || localStorage.getItem("flappy_user_email") || "Not Logged In";
+                let displayUser = window.username || "Guest Player";
+                let displayCountry = window.userCountry || "N/A";
+
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 12px 'Segoe UI', monospace";
-                ctx.fillText("✉ " + userEmail, boxX + 20, boxY + 48);
-                ctx.fillText("👤 " + username + " (" + userCountry + ")", boxX + 20, boxY + 68);
+                ctx.fillText("✉ " + displayEmail, boxX + 20, boxY + 48);
+                ctx.fillText("👤 " + displayUser + " (" + displayCountry + ")", boxX + 20, boxY + 68);
 
                 ctx.strokeStyle = "#2d6a4f";
                 ctx.lineWidth = 1.5;
@@ -1014,9 +1035,9 @@
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 24px 'Segoe UI', monospace";
                 ctx.textAlign = "center";
-                ctx.fillText("LEADERBOARD", canvas.width / 2, 90);
+                ctx.fillText("LEADERBOARD", canvas.width / 2, 60);
 
-                let boxX = 60, boxY = 130, boxW = 280, boxH = 220;
+                let boxX = 25, boxY = 85, boxW = 350, boxH = 380;
                 ctx.fillStyle = "#133121";
                 ctx.beginPath();
                 ctx.roundRect(boxX, boxY, boxW, boxH, 12);
@@ -1025,22 +1046,61 @@
                 ctx.lineWidth = 2.5;
                 ctx.stroke();
 
-                ctx.fillStyle = "#ffcc00";
-                ctx.font = "bold 16px 'Segoe UI', monospace";
-                ctx.fillText("🏆 Cloud Standings", canvas.width / 2, boxY + 40);
+                if (window.isLeaderboardLoading) {
+                    ctx.fillStyle = "#ffcc00";
+                    ctx.font = "bold 16px 'Segoe UI', monospace";
+                    ctx.fillText("Loading Standings...", canvas.width / 2, boxY + 190);
+                } else if (!window.leaderboardData || window.leaderboardData.length === 0) {
+                    ctx.fillStyle = "#ffffff";
+                    ctx.font = "bold 14px 'Segoe UI', monospace";
+                    ctx.fillText("No Players Registered Yet!", canvas.width / 2, boxY + 190);
+                } else {
+                    // Header
+                    ctx.fillStyle = "#ffcc00";
+                    ctx.font = "bold 12px 'Segoe UI', monospace";
+                    ctx.textAlign = "left";
+                    ctx.fillText("RANK", boxX + 15, boxY + 30);
+                    ctx.fillText("PLAYER", boxX + 65, boxY + 30);
+                    ctx.fillText("COUNTRY", boxX + 210, boxY + 30);
+                    ctx.fillText("SCORE", boxX + 290, boxY + 30);
 
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 22px 'Segoe UI', monospace";
-                ctx.fillText(username, canvas.width / 2, boxY + 80);
+                    ctx.strokeStyle = "#2d6a4f";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(boxX + 10, boxY + 40);
+                    ctx.lineTo(boxX + boxW - 10, boxY + 40);
+                    ctx.stroke();
 
-                ctx.fillStyle = "#9ef01a";
-                ctx.font = "bold 14px 'Segoe UI', monospace";
-                ctx.fillText("Country: " + userCountry, canvas.width / 2, boxY + 115);
-                ctx.fillText("Best Score: " + highScore, canvas.width / 2, boxY + 145);
+                    // Rows
+                    let rowY = boxY + 65;
+                    for (let i = 0; i < window.leaderboardData.length; i++) {
+                        let item = window.leaderboardData[i];
+                        let isMe = (item.email && item.email === window.userEmail);
 
-                ctx.fillStyle = "#b7e4c7";
-                ctx.font = "11px 'Segoe UI', monospace";
-                ctx.fillText("Synced live with Gmail Cloud", canvas.width / 2, boxY + 185);
+                        if (isMe) {
+                            ctx.fillStyle = "#2d6a4f";
+                            ctx.fillRect(boxX + 5, rowY - 18, boxW - 10, 28);
+                        }
+
+                        ctx.fillStyle = isMe ? "#9ef01a" : "#ffffff";
+                        ctx.font = (isMe ? "bold " : "") + "12px 'Segoe UI', monospace";
+                        ctx.textAlign = "left";
+
+                        ctx.fillText("#" + (i + 1), boxX + 15, rowY);
+                        
+                        let truncUser = item.username.length > 11 ? item.username.substring(0, 10) + ".." : item.username;
+                        ctx.fillText(truncUser, boxX + 65, rowY);
+                        
+                        let truncCountry = item.country.length > 8 ? item.country.substring(0, 7) + ".." : item.country;
+                        ctx.fillText(truncCountry, boxX + 210, rowY);
+                        
+                        ctx.fillText(item.highScore, boxX + 290, rowY);
+
+                        rowY += 32;
+                        if (rowY > boxY + boxH - 20) break;
+                    }
+                }
+                ctx.textAlign = "left";
 
             } else if (window.gameState === "STORE") {
                 ctx.fillStyle = "#1b4332";
@@ -1057,7 +1117,7 @@
                 ctx.fillStyle = "#ffcc00";
                 ctx.font = "bold 14px 'Segoe UI', monospace";
                 ctx.textAlign = "left";
-                ctx.fillText(coins, storeCoinX + 22, 34);
+                ctx.fillText(window.coins, storeCoinX + 22, 34);
 
                 let itemsList = storeTab === "BIRD" ? skinManager.skins : skinManager.backgrounds;
                 let activeIdx = storeTab === "BIRD" ? skinManager.currentIndex : skinManager.bgIndex;
@@ -1133,7 +1193,7 @@
                 ctx.fillStyle = "#ffcc00";
                 ctx.font = "bold 18px 'Segoe UI', monospace";
                 ctx.textAlign = "left";
-                ctx.fillText(coins, 48, 34);
+                ctx.fillText(window.coins, 48, 34);
 
                 if (window.gameState === "GAMEOVER") {
                     ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
@@ -1156,7 +1216,7 @@
                     ctx.fillStyle = "#ffffff";
                     ctx.font = "16px 'Segoe UI', monospace";
                     ctx.fillText("Score: " + score, canvas.width / 2, pY + 85);
-                    ctx.fillText("Best: " + highScore, canvas.width / 2, pY + 115);
+                    ctx.fillText("Best: " + window.highScore, canvas.width / 2, pY + 115);
 
                     drawWoodenButton("PLAY AGAIN", 110, pY + 130, 180, 40, "retry");
                     drawWoodenButton("MAIN MENU", 110, pY + 185, 180, 40, "popup_menu");

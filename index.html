@@ -17,13 +17,6 @@
             height: 100vh;
             overflow: hidden;
         }
-        h2 {
-            margin: 4px;
-            font-size: 15px;
-            color: #9ef01a;
-            letter-spacing: 1px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-        }
         canvas {
             width: 100vw;
             max-width: 400px;
@@ -240,10 +233,10 @@
 </head>
 <body>
 
-    <h2>Flappy Bird - Mobile Edition</h2>
+    <!-- Main heading removed from outside container -->
     <canvas id="gameCanvas" width="360" height="640"></canvas>
-    <!-- Fixed left-to-right normal input direction -->
-    <input type="text" id="mobileInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" dir="ltr" />
+    <!-- Cursor positioned correctly on left side using ltr direction and text-align left -->
+    <input type="text" id="mobileInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" dir="ltr" style="direction: ltr; text-align: left;" />
     <div class="instructions">
         Tap screen or press Spacebar to play!
     </div>
@@ -388,7 +381,6 @@
         let inputCountryVal = "";
         let setupErrorMsg = "";
 
-        // Fixed keydown listener to support Backspace cleanly
         window.addEventListener("keydown", async (e) => {
             if (window.gameState === "PROFILE_SETUP") {
                 if (document.activeElement === mobileInput) return;
@@ -985,7 +977,6 @@
                 drawWoodenButton("BIRDS", 82, 14, 68, 30, "tab_birds");
                 drawWoodenButton("BACKGROUNDS", 155, 14, 105, 30, "tab_bgs");
 
-                // Shifted store coin further right to avoid overlapping with background tab
                 let storeCoinX = 272;
                 if (coinImg.complete && coinImg.naturalWidth !== 0) ctx.drawImage(coinImg, storeCoinX, 19, 16, 16);
                 ctx.fillStyle = "#ffcc00"; ctx.font = "bold 12px 'Segoe UI', sans-serif"; ctx.textAlign = "left";

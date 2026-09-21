@@ -206,6 +206,10 @@
 <body>
 
     <canvas id="gameCanvas" width="360" height="640"></canvas>
+    
+    <!-- Hidden Mobile Keyboard Input -->
+    <input type="text" id="mobileInput" style="position: absolute; opacity: 0; pointer-events: none; left: 0; top: 0; width: 1px; height: 1px;" autocomplete="off" />
+
     <div class="instructions">
         Type directly on keyboard for profile setup | Press Spacebar or Click to play!
     </div>
@@ -213,6 +217,7 @@
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+        const mobileInput = document.getElementById("mobileInput");
         
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
@@ -342,28 +347,34 @@
         let inputCountryVal = "";
         let setupErrorMsg = "";
 
+        // Sync mobile input with active field variables
+        mobileInput.addEventListener("input", (e) => {
+            if (window.gameState === "PROFILE_SETUP") {
+                let val = mobileInput.value;
+                if (inputActiveField === "username") {
+                    inputUsernameVal = val.slice(0, 15);
+                } else if (inputActiveField === "country") {
+                    inputCountryVal = val.slice(0, 20);
+                }
+            }
+        });
+
         window.addEventListener("keydown", async (e) => {
             if (window.gameState === "PROFILE_SETUP") {
                 if (e.key === "Tab") {
                     e.preventDefault();
                     inputActiveField = inputActiveField === "username" ? "country" : "username";
+                    mobileInput.value = inputActiveField === "username" ? inputUsernameVal : inputCountryVal;
+                    mobileInput.focus();
                     playSound("click");
                 } else if (e.key === "Backspace") {
-                    e.preventDefault();
                     if (inputActiveField === "username") {
                         inputUsernameVal = inputUsernameVal.slice(0, -1);
                     } else {
                         inputCountryVal = inputCountryVal.slice(0, -1);
                     }
+                    mobileInput.value = inputActiveField === "username" ? inputUsernameVal : inputCountryVal;
                     playSound("click");
-                } else if (e.key.length === 1 && /^[a-zA-Z0-9_ ]$/.test(e.key)) {
-                    if (inputActiveField === "username" && inputUsernameVal.length < 15) {
-                        inputUsernameVal += e.key;
-                        playSound("click");
-                    } else if (inputActiveField === "country" && inputCountryVal.length < 20) {
-                        inputCountryVal += e.key;
-                        playSound("click");
-                    }
                 }
                 return;
             }
@@ -398,11 +409,16 @@
             } else if (window.gameState === "PROFILE_SETUP") {
                 if (mouseX >= 50 && mouseX <= 310 && mouseY >= 210 && mouseY <= 260) {
                     inputActiveField = "username";
+                    mobileInput.value = inputUsernameVal;
+                    mobileInput.focus();
                     playSound("click");
                 } else if (mouseX >= 50 && mouseX <= 310 && mouseY >= 300 && mouseY <= 350) {
                     inputActiveField = "country";
+                    mobileInput.value = inputCountryVal;
+                    mobileInput.focus();
                     playSound("click");
                 } else if (mouseX >= 80 && mouseX <= 280 && mouseY >= 420 && mouseY <= 470) {
+                    mobileInput.blur();
                     let cleanUser = inputUsernameVal.trim();
                     let cleanCountryInput = inputCountryVal.trim().toLowerCase();
 
@@ -475,7 +491,6 @@
                 }
 
                 if (window.gameState === "STORE") {
-                    // Fix: Updated tab click bounding boxes to match rendered buttons exactly
                     if (mouseX >= 82 && mouseX <= 150 && mouseY >= 14 && mouseY <= 44) { storeTab = "BIRD"; playSound("click"); return; }
                     if (mouseX >= 155 && mouseX <= 260 && mouseY >= 14 && mouseY <= 44) { storeTab = "BACKGROUND"; playSound("click"); return; }
 
@@ -623,6 +638,13 @@
         function update(dt) {
             if (clickAnimTimer > 0) clickAnimTimer--;
             idleAnimCounter += 0.05;
+
+            // Auto-focus mobile keyboard when profile setup state is active
+            if (window.gameState === "PROFILE_SETUP") {
+                if (document.activeElement !== mobileInput) {
+                    mobileInput.focus();
+                }
+            }
 
             if (window.gameState === "PLAYING" || window.gameState === "MENU" || window.gameState === "LOGIN") {
                 musicTimer++;

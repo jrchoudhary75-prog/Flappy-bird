@@ -18,7 +18,7 @@
             overflow: hidden;
         }
         canvas {
-            width: 450px;
+            width: 360px;
             height: 640px;
             border: 4px solid #1b4332;
             border-radius: 20px;
@@ -453,7 +453,7 @@
                     });
                 }
             } else if (window.gameState === "SETTINGS") {
-                if (mouseX >= 15 && mouseX <= 85 && mouseY >= 14 && mouseY <= 46) {
+                if (mouseX >= 15 && mouseX <= 90 && mouseY >= 14 && mouseY <= 46) {
                     triggerClick("back", () => { window.gameState = "MENU"; });
                     return;
                 }
@@ -469,14 +469,15 @@
                     });
                 }
             } else if (window.gameState === "LEADERBOARD" || window.gameState === "STORE") {
-                if (mouseX >= 15 && mouseX <= 85 && mouseY >= 14 && mouseY <= 46) {
+                if (mouseX >= 15 && mouseX <= 90 && mouseY >= 14 && mouseY <= 46) {
                     triggerClick("back", () => { window.gameState = "MENU"; });
                     return;
                 }
 
                 if (window.gameState === "STORE") {
-                    if (mouseX >= 95 && mouseX <= 175 && mouseY >= 14 && mouseY <= 46) { storeTab = "BIRD"; playSound("click"); return; }
-                    if (mouseX >= 183 && mouseX <= 310 && mouseY >= 14 && mouseY <= 46) { storeTab = "BACKGROUND"; playSound("click"); return; }
+                    // Fix: Updated tab click bounding boxes to match rendered buttons exactly
+                    if (mouseX >= 82 && mouseX <= 150 && mouseY >= 14 && mouseY <= 44) { storeTab = "BIRD"; playSound("click"); return; }
+                    if (mouseX >= 155 && mouseX <= 260 && mouseY >= 14 && mouseY <= 44) { storeTab = "BACKGROUND"; playSound("click"); return; }
 
                     let itemsList = storeTab === "BIRD" ? skinManager.skins : skinManager.backgrounds;
                     for (let i = 0; i < itemsList.length; i++) {

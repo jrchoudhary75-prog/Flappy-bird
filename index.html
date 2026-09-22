@@ -157,7 +157,7 @@
             window.isLeaderboardLoading = true;
             try {
                 const usersRef = collection(db, "flappy_users");
-                const q = query(usersRef, orderBy("highScore", "desc"), limit(10));
+                const q = query(usersRef, orderBy("highScore", "desc"), limit(50));
                 const querySnapshot = await getDocs(q);
                 let list = [];
                 querySnapshot.forEach((docSnap) => {
@@ -259,6 +259,8 @@
         let audioCtx = null;
         let musicTimer = 0;
 
+        let leaderboardScrollOffset = 0;
+
         function initAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -320,7 +322,6 @@
 
         const coinImg = new Image(); coinImg.src = "coin.png";
         const settingImg = new Image(); settingImg.src = "setting.png";
-        const logoImg = new Image(); logoImg.src = "Flappy bird logo.png";
 
         let clouds = [
             { x: 50, y: 80, scale: 0.8, speed: 30 },
@@ -360,6 +361,15 @@
             }
         });
 
+        window.addEventListener("wheel", (e) => {
+            if (window.gameState === "LEADERBOARD") {
+                leaderboardScrollOffset += e.deltaY * 0.4;
+                let maxScroll = Math.max(0, (window.leaderboardData.length * 30) - 340);
+                if (leaderboardScrollOffset < 0) leaderboardScrollOffset = 0;
+                if (leaderboardScrollOffset > maxScroll) leaderboardScrollOffset = maxScroll;
+            }
+        }, { passive: true });
+
         window.addEventListener("keydown", async (e) => {
             if (window.gameState === "PROFILE_SETUP") {
                 if (e.key === "Tab") {
@@ -378,6 +388,14 @@
                     playSound("click");
                 }
                 return;
+            }
+
+            if (window.gameState === "LEADERBOARD") {
+                if (e.key === "ArrowDown") {
+                    leaderboardScrollOffset = Math.min(Math.max(0, (window.leaderboardData.length * 30) - 340), leaderboardScrollOffset + 30);
+                } else if (e.key === "ArrowUp") {
+                    leaderboardScrollOffset = Math.max(0, leaderboardScrollOffset - 30);
+                }
             }
 
             if (e.code === "Space") {
@@ -466,6 +484,7 @@
                 if (mouseX >= 80 && mouseX <= 280 && mouseY >= 390 && mouseY <= 445) {
                     triggerClick("leaderboard", () => {
                         window.gameState = "LEADERBOARD";
+                        leaderboardScrollOffset = 0;
                         if (typeof window.fetchLeaderboard === "function") window.fetchLeaderboard();
                     });
                 }
@@ -724,6 +743,71 @@
             ctx.restore();
         }
 
+        function drawCustomLoadingLogo(centerX, centerY) {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+
+            // Glow / Shadow behind bird
+            ctx.fillStyle = "rgba(0,0,0,0.3)";
+            ctx.beginPath();
+            ctx.arc(0, 10, 40, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Bird Body (Yellow/Orange)
+            let bodyGrad = ctx.createRadialGradient(-5, -5, 5, 0, 0, 32);
+            bodyGrad.addColorStop(0, "#ffeb3b");
+            bodyGrad.addColorStop(0.7, "#ff9800");
+            bodyGrad.addColorStop(1, "#e65100");
+            ctx.fillStyle = bodyGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, 28, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#b23c00";
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Wing (Yellow/White)
+            ctx.fillStyle = "#fff59d";
+            ctx.beginPath();
+            ctx.ellipse(-4, 6, 12, 8, Math.PI / 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#e65100";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Eye (Big White Circle with Black Pupil)
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.arc(10, -8, 11, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#333333";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = "#000000";
+            ctx.beginPath();
+            ctx.arc(13, -8, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.arc(14.5, -9.5, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Beak (Orange/Red triangle)
+            ctx.fillStyle = "#ff5722";
+            ctx.beginPath();
+            ctx.moveTo(20, -2);
+            ctx.lineTo(34, 1);
+            ctx.lineTo(20, 8);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = "#b23c00";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
         function draw(dt) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -732,17 +816,16 @@
                 ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; 
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // Flappy Bird Logo Image in the center
-                let logoW = 220;
-                let logoH = 80;
-                if (logoImg.complete && logoImg.naturalWidth !== 0) {
-                    ctx.drawImage(logoImg, (canvas.width - logoW) / 2, canvas.height / 2 - 55, logoW, logoH);
-                } else {
-                    ctx.fillStyle = "#ffffff"; 
-                    ctx.font = "bold 27px 'Segoe UI', sans-serif"; 
-                    ctx.textAlign = "center";
-                    ctx.fillText("FLAPPY BIRD", canvas.width / 2, canvas.height / 2 - 35);
-                }
+                // Custom attractive Flappy Bird Logo Graphic
+                drawCustomLoadingLogo(canvas.width / 2, canvas.height / 2 - 50);
+
+                // Flappy Bird Title Text
+                ctx.fillStyle = "#ffd166"; 
+                ctx.font = "bold 26px 'Segoe UI', sans-serif"; 
+                ctx.textAlign = "center";
+                ctx.shadowColor = "#000"; ctx.shadowBlur = 8;
+                ctx.fillText("FLAPPY BIRD", canvas.width / 2, canvas.height / 2 + 35);
+                ctx.shadowBlur = 0;
 
                 // Loading text at the bottom with slower dots animation
                 ctx.fillStyle = "#b7e4c7"; 
@@ -893,12 +976,13 @@
                 ctx.strokeStyle = "#52b788"; ctx.lineWidth = 2.5; ctx.stroke();
 
                 if (window.isLeaderboardLoading) {
-                    ctx.fillStyle = "#ffcc00"; ctx.font = "bold 14px 'Segoe UI', sans-serif";
+                    ctx.fillStyle = "#ffcc00"; ctx.font = "bold 14px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                     ctx.fillText("Loading Standings...", canvas.width / 2, boxY + 215);
                 } else if (!window.leaderboardData || window.leaderboardData.length === 0) {
-                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 12px 'Segoe UI', sans-serif";
+                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 12px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                     ctx.fillText("No Players Registered Yet!", canvas.width / 2, boxY + 215);
                 } else {
+                    // Table Header
                     ctx.fillStyle = "#ffcc00"; ctx.font = "bold 11px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
                     ctx.fillText("RANK", boxX + 12, boxY + 28);
                     ctx.fillText("PLAYER", boxX + 55, boxY + 28);
@@ -908,29 +992,37 @@
                     ctx.strokeStyle = "#2d6a4f"; ctx.lineWidth = 1;
                     ctx.beginPath(); ctx.moveTo(boxX + 10, boxY + 38); ctx.lineTo(boxX + boxW - 10, boxY + 38); ctx.stroke();
 
-                    let rowY = boxY + 62;
+                    // Scrollable List Area Clipping
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(boxX + 5, boxY + 42, boxW - 10, boxH - 50);
+                    ctx.clip();
+
+                    let rowY = boxY + 65 - leaderboardScrollOffset;
                     for (let i = 0; i < window.leaderboardData.length; i++) {
                         let item = window.leaderboardData[i];
                         let isMe = (item.email && item.email === window.userEmail);
 
-                        if (isMe) {
-                            ctx.fillStyle = "#2d6a4f"; ctx.fillRect(boxX + 5, rowY - 16, boxW - 10, 26);
+                        if (rowY >= boxY + 35 && rowY <= boxY + boxH) {
+                            if (isMe) {
+                                ctx.fillStyle = "#2d6a4f"; ctx.fillRect(boxX + 10, rowY - 16, boxW - 20, 26);
+                            }
+
+                            ctx.fillStyle = isMe ? "#9ef01a" : "#ffffff";
+                            ctx.font = (isMe ? "bold " : "") + "11px 'Segoe UI', sans-serif";
+                            ctx.textAlign = "left";
+
+                            ctx.fillText("#" + (i + 1), boxX + 12, rowY);
+                            let truncUser = item.username.length > 10 ? item.username.substring(0, 9) + ".." : item.username;
+                            ctx.fillText(truncUser, boxX + 55, rowY);
+                            let truncCountry = item.country.length > 8 ? item.country.substring(0, 7) + ".." : item.country;
+                            ctx.fillText(truncCountry, boxX + 190, rowY);
+                            ctx.fillText(item.highScore, boxX + 270, rowY);
                         }
 
-                        ctx.fillStyle = isMe ? "#9ef01a" : "#ffffff";
-                        ctx.font = (isMe ? "bold " : "") + "11px 'Segoe UI', sans-serif";
-                        ctx.textAlign = "left";
-
-                        ctx.fillText("#" + (i + 1), boxX + 12, rowY);
-                        let truncUser = item.username.length > 10 ? item.username.substring(0, 9) + ".." : item.username;
-                        ctx.fillText(truncUser, boxX + 55, rowY);
-                        let truncCountry = item.country.length > 8 ? item.country.substring(0, 7) + ".." : item.country;
-                        ctx.fillText(truncCountry, boxX + 190, rowY);
-                        ctx.fillText(item.highScore, boxX + 270, rowY);
-
                         rowY += 30;
-                        if (rowY > boxY + boxH - 15) break;
                     }
+                    ctx.restore();
                 }
                 ctx.textAlign = "left";
 

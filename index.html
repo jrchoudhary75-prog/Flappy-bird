@@ -515,7 +515,6 @@
                 if (mouseX >= 220 && mouseX <= 300 && mouseY >= 280 && mouseY <= 320) {
                     settings.sound = !settings.sound; playSound("click");
                 }
-                // Updated logout button coordinates click validation matching boxY(85) + 310 = 395 to 435
                 let boxX = 25, boxY = 85, boxW = 310;
                 if (mouseX >= boxX + 20 && mouseX <= boxX + boxW - 20 && mouseY >= boxY + 310 && mouseY <= boxY + 350) {
                     triggerClick("logout", () => {
@@ -615,14 +614,7 @@
             let bg = skinManager.getCurrentBackground();
             
             let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            // Updated to be very subtle background color shift for scores >= 5 and >= 10
-            if (score >= 5 && score < 10) {
-                skyGrad.addColorStop(0, "#19323c"); skyGrad.addColorStop(0.5, "#1f485b"); skyGrad.addColorStop(1, "#26546d");
-            } else if (score >= 10) {
-                skyGrad.addColorStop(0, "#121b22"); skyGrad.addColorStop(0.5, "#1b2a32"); skyGrad.addColorStop(1, "#223843");
-            } else {
-                skyGrad.addColorStop(0, bg.top); skyGrad.addColorStop(0.5, bg.mid); skyGrad.addColorStop(1, bg.bot);
-            }
+            skyGrad.addColorStop(0, bg.top); skyGrad.addColorStop(0.5, bg.mid); skyGrad.addColorStop(1, bg.bot);
 
             ctx.fillStyle = skyGrad;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -654,14 +646,25 @@
                 drawSingleCloud(c.x, c.y, c.scale);
             });
 
-            if (score >= 5) {
-                ctx.fillStyle = score >= 10 ? "#ffffff" : "rgba(173, 216, 230, 0.6)";
+            // Particle stage updates based on score interval of 15
+            let particleTier = Math.floor(score / 15);
+            if (particleTier === 1) {
+                // Tier 1 (Score 15-29): Heavy Snowflakes
+                ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
                 weatherParticles.forEach(p => {
-                    p.y += p.speed * dt;
+                    p.y += (p.speed * 0.7) * dt;
                     if (p.y > canvas.height) p.y = 0;
                     ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.arc(p.x, p.y, p.size + 0.8, 0, Math.PI * 2);
                     ctx.fill();
+                });
+            } else if (particleTier >= 2) {
+                // Tier 2+ (Score 30+): Glowing Magical Gold/Neon Sparks
+                weatherParticles.forEach(p => {
+                    p.y += (p.speed * 1.2) * dt;
+                    if (p.y > canvas.height) p.y = 0;
+                    ctx.fillStyle = Math.random() > 0.5 ? "#ffd166" : "#06d6a0";
+                    ctx.fillRect(p.x, p.y, p.size * 1.8, p.size * 1.8);
                 });
             }
 
@@ -791,47 +794,59 @@
             ctx.restore();
         }
 
-        // Enhanced and more fun loading screen logo design with animated wing
+        // Updated highly attractive & animated loading screen logo design with glowing backdrop aura
         function drawCustomLoadingLogo(centerX, centerY) {
             ctx.save();
             ctx.translate(centerX, centerY);
 
-            ctx.fillStyle = "rgba(0,0,0,0.35)";
+            // Glowing animated background aura circle
+            let auraGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, 55);
+            auraGrad.addColorStop(0, "rgba(255, 215, 0, 0.35)");
+            auraGrad.addColorStop(1, "rgba(255, 140, 0, 0)");
+            ctx.fillStyle = auraGrad;
             ctx.beginPath();
-            ctx.arc(0, 15, 45, 0, Math.PI * 2);
+            ctx.arc(0, 0, 55, 0, Math.PI * 2);
             ctx.fill();
 
-            let bodyGrad = ctx.createRadialGradient(-8, -8, 5, 0, 0, 36);
-            bodyGrad.addColorStop(0, "#ffe600");
-            bodyGrad.addColorStop(0.6, "#ff8800");
-            bodyGrad.addColorStop(1, "#cc4400");
+            // Bird shadow
+            ctx.fillStyle = "rgba(0,0,0,0.4)";
+            ctx.beginPath();
+            ctx.arc(0, 18, 42, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Main shiny body gradient
+            let bodyGrad = ctx.createRadialGradient(-10, -10, 4, 0, 0, 34);
+            bodyGrad.addColorStop(0, "#fff567");
+            bodyGrad.addColorStop(0.5, "#ff9e00");
+            bodyGrad.addColorStop(1, "#d90429");
             ctx.fillStyle = bodyGrad;
             ctx.beginPath();
             ctx.arc(0, 0, 32, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = "#992200";
+            ctx.strokeStyle = "#8d0801";
             ctx.lineWidth = 3;
             ctx.stroke();
 
-            // Animated wing flap based on idleAnimCounter
+            // Animated flapping wing
             ctx.save();
-            let wingAngleOffset = Math.sin(idleAnimCounter * 6) * 0.3;
-            ctx.translate(-4, 6);
+            let wingAngleOffset = Math.sin(idleAnimCounter * 8) * 0.35;
+            ctx.translate(-5, 5);
             ctx.rotate(wingAngleOffset);
-            ctx.fillStyle = "#fff176";
+            ctx.fillStyle = "#fffaa0";
             ctx.beginPath();
-            ctx.ellipse(0, 0, 13, 9, Math.PI / 6, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, 14, 10, Math.PI / 5, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = "#d84315";
+            ctx.strokeStyle = "#bc3908";
             ctx.lineWidth = 1.5;
             ctx.stroke();
             ctx.restore();
 
+            // Big expressive eye
             ctx.fillStyle = "#ffffff";
             ctx.beginPath();
             ctx.arc(12, -8, 12, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = "#222222";
+            ctx.strokeStyle = "#111111";
             ctx.lineWidth = 2;
             ctx.stroke();
 
@@ -844,14 +859,18 @@
             ctx.arc(16.5, -9.5, 1.8, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.fillStyle = "#ff3d00";
+            // Vibrant sharp beak
+            let beakGrad = ctx.createLinearGradient(22, -2, 38, 10);
+            beakGrad.addColorStop(0, "#ffb703");
+            beakGrad.addColorStop(1, "#fb8500");
+            ctx.fillStyle = beakGrad;
             ctx.beginPath();
-            ctx.moveTo(22, -2);
-            ctx.lineTo(38, 2);
-            ctx.lineTo(22, 10);
+            ctx.moveTo(22, -3);
+            ctx.lineTo(40, 3);
+            ctx.lineTo(22, 11);
             ctx.closePath();
             ctx.fill();
-            ctx.strokeStyle = "#992200";
+            ctx.strokeStyle = "#9e2a2b";
             ctx.lineWidth = 2;
             ctx.stroke();
 
@@ -863,7 +882,7 @@
 
             if (window.gameState === "LOADING") {
                 drawActiveBackground(dt);
-                ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; 
+                ctx.fillStyle = "rgba(0, 0, 0, 0.78)"; 
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 drawCustomLoadingLogo(canvas.width / 2, canvas.height / 2 - 50);
@@ -896,12 +915,24 @@
                 ctx.fillText("Sign in with Google to sync your score", canvas.width / 2, 170);
 
                 let btnX = 40, btnY = 310, btnW = 280, btnH = 55;
-                ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.roundRect(btnX, btnY, btnW, btnH, 8); ctx.fill();
-                ctx.strokeStyle = "#52b788"; ctx.lineWidth = 2; ctx.stroke();
-                ctx.fillStyle = "#4285F4"; ctx.font = "bold 18px sans-serif"; ctx.textAlign = "left";
-                ctx.fillText("G", btnX + 25, btnY + 33);
-                ctx.fillStyle = "#333333"; ctx.font = "bold 13px sans-serif";
-                ctx.fillText("Sign in with Google (Gmail)", btnX + 55, btnY + 32);
+                
+                // Enhanced Google login button color fill with gradient & solid clean background
+                let gBtnGrad = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
+                gBtnGrad.addColorStop(0, "#ffffff");
+                gBtnGrad.addColorStop(1, "#f1f3f4");
+                ctx.fillStyle = gBtnGrad;
+                ctx.beginPath(); 
+                ctx.roundRect(btnX, btnY, btnW, btnH, 10); 
+                ctx.fill();
+                
+                ctx.strokeStyle = "#4285F4"; 
+                ctx.lineWidth = 2.5; 
+                ctx.stroke();
+
+                ctx.fillStyle = "#4285F4"; ctx.font = "bold 19px sans-serif"; ctx.textAlign = "left";
+                ctx.fillText("G", btnX + 30, btnY + 34);
+                ctx.fillStyle = "#202124"; ctx.font = "bold 13.5px sans-serif";
+                ctx.fillText("Sign in with Google (Gmail)", btnX + 60, btnY + 33);
                 ctx.textAlign = "left";
 
             } else if (window.gameState === "PROFILE_SETUP") {

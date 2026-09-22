@@ -341,7 +341,8 @@
 
         let mountainX = 0;
         let storeTab = "BIRD";
-        let bird = { x: 70, y: 250, width: 32, height: 24, gravity: 1200, lift: -360, velocity: 0, wingAngle: 0 };
+        // Slightly increased gravity (from 1200 to 1300)
+        let bird = { x: 70, y: 250, width: 32, height: 24, gravity: 1300, lift: -360, velocity: 0, wingAngle: 0 };
         let pipes = [];
         let pipeWidth = 55;
         let pipeCapHeight = 22;
@@ -373,7 +374,7 @@
         window.addEventListener("wheel", (e) => {
             if (window.gameState === "LEADERBOARD") {
                 leaderboardScrollOffset += e.deltaY * 0.4;
-                let maxScroll = Math.max(0, (window.leaderboardData.length * 30) - 340);
+                let maxScroll = Math.max(0, (window.leaderboardData.length * 30) - 300);
                 if (leaderboardScrollOffset < 0) leaderboardScrollOffset = 0;
                 if (leaderboardScrollOffset > maxScroll) leaderboardScrollOffset = maxScroll;
             }
@@ -401,7 +402,7 @@
 
             if (window.gameState === "LEADERBOARD") {
                 if (e.key === "ArrowDown") {
-                    leaderboardScrollOffset = Math.min(Math.max(0, (window.leaderboardData.length * 30) - 340), leaderboardScrollOffset + 30);
+                    leaderboardScrollOffset = Math.min(Math.max(0, (window.leaderboardData.length * 30) - 300), leaderboardScrollOffset + 30);
                 } else if (e.key === "ArrowUp") {
                     leaderboardScrollOffset = Math.max(0, leaderboardScrollOffset - 30);
                 }
@@ -715,10 +716,10 @@
                 if (bird.wingAngle > 0) bird.wingAngle = 0;
             }
 
-            // READY State: Bird hovers and flaps wings like it's flying
+            // READY State: Slower hover and slower wing flapping animation
             if (window.gameState === "READY") {
-                bird.y = 250 + Math.sin(idleAnimCounter * 5) * 10; // Smooth up & down hover
-                bird.wingAngle = Math.sin(idleAnimCounter * 10) * 0.6; // Wing flapping animation
+                bird.y = 250 + Math.sin(idleAnimCounter * 2.5) * 10; // Slower hover
+                bird.wingAngle = Math.sin(idleAnimCounter * 5) * 0.5; // Slower wing flap
                 return;
             }
 
@@ -1029,9 +1030,19 @@
                     ctx.strokeStyle = "#2d6a4f"; ctx.lineWidth = 1;
                     ctx.beginPath(); ctx.moveTo(boxX + 10, boxY + 38); ctx.lineTo(boxX + boxW - 10, boxY + 38); ctx.stroke();
 
+                    // Check if current user exists in leaderboard data and get rank
+                    let myRankIndex = -1;
+                    if (window.userEmail) {
+                        myRankIndex = window.leaderboardData.findIndex(item => item.email === window.userEmail);
+                    }
+
+                    // Height reserved for sticky bottom row if logged-in user is found
+                    let bottomStickyHeight = (myRankIndex !== -1) ? 42 : 0;
+
+                    // Scrollable area clip
                     ctx.save();
                     ctx.beginPath();
-                    ctx.rect(boxX + 5, boxY + 42, boxW - 10, boxH - 50);
+                    ctx.rect(boxX + 5, boxY + 42, boxW - 10, boxH - 50 - bottomStickyHeight);
                     ctx.clip();
 
                     let rowY = boxY + 65 - leaderboardScrollOffset;
@@ -1039,7 +1050,7 @@
                         let item = window.leaderboardData[i];
                         let isMe = (item.email && item.email === window.userEmail);
 
-                        if (rowY >= boxY + 35 && rowY <= boxY + boxH) {
+                        if (rowY >= boxY + 35 && rowY <= boxY + boxH - bottomStickyHeight) {
                             if (isMe) {
                                 ctx.fillStyle = "#2d6a4f"; ctx.fillRect(boxX + 10, rowY - 16, boxW - 20, 26);
                             }
@@ -1059,6 +1070,29 @@
                         rowY += 30;
                     }
                     ctx.restore();
+
+                    // Sticky bottom row for current user's rank
+                    if (myRankIndex !== -1) {
+                        let myItem = window.leaderboardData[myRankIndex];
+                        let stickyY = boxY + boxH - 36;
+
+                        ctx.strokeStyle = "#52b788"; ctx.lineWidth = 1;
+                        ctx.beginPath(); ctx.moveTo(boxX + 10, stickyY - 8); ctx.lineTo(boxX + boxW - 10, stickyY - 8); ctx.stroke();
+
+                        ctx.fillStyle = "#1b4332"; 
+                        ctx.beginPath(); ctx.roundRect(boxX + 10, stickyY - 4, boxW - 20, 32, 6); ctx.fill();
+                        ctx.strokeStyle = "#9ef01a"; ctx.lineWidth = 1.5; ctx.stroke();
+
+                        ctx.fillStyle = "#9ef01a"; ctx.font = "bold 11px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
+                        ctx.fillText("#" + (myRankIndex + 1), boxX + 15, stickyY + 16);
+                        
+                        let truncUser = myItem.username.length > 10 ? myItem.username.substring(0, 9) + ".." : myItem.username;
+                        ctx.fillText(truncUser + " (You)", boxX + 55, stickyY + 16);
+
+                        let truncCountry = myItem.country.length > 8 ? myItem.country.substring(0, 7) + ".." : myItem.country;
+                        ctx.fillText(truncCountry, boxX + 190, stickyY + 16);
+                        ctx.fillText(myItem.highScore, boxX + 270, stickyY + 16);
+                    }
                 }
                 ctx.textAlign = "left";
 

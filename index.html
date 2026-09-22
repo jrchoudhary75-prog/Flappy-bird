@@ -728,9 +728,30 @@
 
             if (window.gameState === "LOADING") {
                 drawActiveBackground(dt);
-                ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 15px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
-                ctx.fillText("Connecting Cloud...", canvas.width / 2, canvas.height / 2);
+                ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; 
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Flappy Bird Game Logo & Title in the center
+                ctx.save();
+                ctx.shadowColor = "#000"; 
+                ctx.shadowBlur = 8;
+                ctx.fillStyle = "#ffffff"; 
+                ctx.font = "bold 27px 'Segoe UI', sans-serif"; 
+                ctx.textAlign = "center";
+                ctx.fillText("FLAPPY BIRD", canvas.width / 2, canvas.height / 2 - 35);
+                ctx.shadowBlur = 0;
+
+                // Center Bird Graphic
+                skinManager.drawBirdGraphic(ctx, canvas.width / 2, canvas.height / 2 + 15, 1.2, skinManager.currentIndex, Math.sin(idleAnimCounter * 3) * 0.3);
+                ctx.restore();
+
+                // Loading text at the bottom
+                ctx.fillStyle = "#b7e4c7"; 
+                ctx.font = "bold 14px 'Segoe UI', sans-serif"; 
+                ctx.textAlign = "center";
+                let dots = ".".repeat(Math.floor(idleAnimCounter * 3) % 4);
+                ctx.fillText("Loading" + dots, canvas.width / 2, canvas.height - 110);
+
                 ctx.textAlign = "left";
                 return;
             }

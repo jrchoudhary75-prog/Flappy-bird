@@ -261,7 +261,6 @@
 
         let leaderboardScrollOffset = 0;
 
-        // NEW FEATURE: Dynamic Weather & Particles (Stars & Rain based on Score/Time)
         let weatherParticles = [];
         for(let i=0; i<30; i++) {
             weatherParticles.push({
@@ -360,7 +359,6 @@
         let inputCountryVal = "";
         let setupErrorMsg = "";
 
-        // Sync mobile input with active field variables
         mobileInput.addEventListener("input", (e) => {
             if (window.gameState === "PROFILE_SETUP") {
                 let val = mobileInput.value;
@@ -410,7 +408,13 @@
             }
 
             if (e.code === "Space") {
-                if (window.gameState === "PLAYING") {
+                if (window.gameState === "READY") {
+                    window.gameState = "PLAYING";
+                    bird.velocity = bird.lift;
+                    bird.wingAngle = -0.8;
+                    playSound("flap");
+                    e.preventDefault();
+                } else if (window.gameState === "PLAYING") {
                     bird.velocity = bird.lift;
                     bird.wingAngle = -0.8;
                     playSound("flap");
@@ -419,7 +423,8 @@
                     window.gameState = "MENU";
                     playSound("click");
                 } else if (window.gameState === "MENU") {
-                    resetGame(); window.gameState = "PLAYING";
+                    resetGame(); 
+                    window.gameState = "READY";
                     e.preventDefault();
                 }
             }
@@ -487,7 +492,7 @@
                 }
 
                 if (mouseX >= 80 && mouseX <= 280 && mouseY >= 250 && mouseY <= 305) {
-                    triggerClick("play", () => { resetGame(); window.gameState = "PLAYING"; });
+                    triggerClick("play", () => { resetGame(); window.gameState = "READY"; });
                 }
                 if (mouseX >= 80 && mouseX <= 280 && mouseY >= 320 && mouseY <= 375) {
                     triggerClick("store", () => { window.gameState = "STORE"; storeTab = "BIRD"; });
@@ -543,6 +548,11 @@
                         }
                     }
                 }
+            } else if (window.gameState === "READY") {
+                window.gameState = "PLAYING";
+                bird.velocity = bird.lift;
+                bird.wingAngle = -0.8;
+                playSound("flap");
             } else if (window.gameState === "PLAYING") {
                 bird.velocity = bird.lift;
                 bird.wingAngle = -0.8;
@@ -550,7 +560,7 @@
             } else if (window.gameState === "GAMEOVER") {
                 let pY = 160;
                 if (mouseX >= 90 && mouseX <= 270 && mouseY >= pY + 140 && mouseY <= pY + 180) {
-                    triggerClick("retry", () => { resetGame(); window.gameState = "PLAYING"; });
+                    triggerClick("retry", () => { resetGame(); window.gameState = "READY"; });
                 }
                 if (mouseX >= 90 && mouseX <= 270 && mouseY >= pY + 195 && mouseY <= pY + 235) {
                     triggerClick("popup_menu", () => { window.gameState = "MENU"; });
@@ -602,13 +612,10 @@
         function drawActiveBackground(dt) {
             let bg = skinManager.getCurrentBackground();
             
-            // Dynamic Weather Shift based on score (Every 5 points toggles evening/night/rain aura)
             let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
             if (score >= 5 && score < 10) {
-                // Evening Theme
                 skyGrad.addColorStop(0, "#2b2d42"); skyGrad.addColorStop(0.5, "#8d99ae"); skyGrad.addColorStop(1, "#d90429");
             } else if (score >= 10) {
-                // Night Theme with stars
                 skyGrad.addColorStop(0, "#03071e"); skyGrad.addColorStop(0.5, "#10002b"); skyGrad.addColorStop(1, "#240046");
             } else {
                 skyGrad.addColorStop(0, bg.top); skyGrad.addColorStop(0.5, bg.mid); skyGrad.addColorStop(1, bg.bot);
@@ -644,7 +651,6 @@
                 drawSingleCloud(c.x, c.y, c.scale);
             });
 
-            // Draw Weather Particles (Rain/Stars effect)
             if (score >= 5) {
                 ctx.fillStyle = score >= 10 ? "#ffffff" : "rgba(173, 216, 230, 0.6)";
                 weatherParticles.forEach(p => {
@@ -693,14 +699,13 @@
             if (clickAnimTimer > 0) clickAnimTimer--;
             idleAnimCounter += 0.05;
 
-            // Auto-focus mobile keyboard when profile setup state is active
             if (window.gameState === "PROFILE_SETUP") {
                 if (document.activeElement !== mobileInput) {
                     mobileInput.focus();
                 }
             }
 
-            if (window.gameState === "PLAYING" || window.gameState === "MENU" || window.gameState === "LOGIN") {
+            if (window.gameState === "PLAYING" || window.gameState === "READY" || window.gameState === "MENU" || window.gameState === "LOGIN") {
                 musicTimer++;
                 if (musicTimer > 50) { playBackgroundMusicTick(); musicTimer = 0; }
             }
@@ -708,6 +713,12 @@
             if (bird.wingAngle < 0) {
                 bird.wingAngle += 0.15;
                 if (bird.wingAngle > 0) bird.wingAngle = 0;
+            }
+
+            // READY State hovering animation (bobbing up and down)
+            if (window.gameState === "READY") {
+                bird.y = 250 + Math.sin(idleAnimCounter * 4) * 8;
+                return;
             }
 
             if (window.gameState !== "PLAYING") return;
@@ -771,7 +782,7 @@
         function drawInGameBird(x, y) {
             ctx.save();
             ctx.translate(x + bird.width / 2, y + bird.height / 2);
-            let rot = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, bird.velocity * 0.001));
+            let rot = window.gameState === "READY" ? 0 : Math.min(Math.PI / 4, Math.max(-Math.PI / 4, bird.velocity * 0.001));
             ctx.rotate(rot);
             skinManager.drawBirdGraphic(ctx, 0, 0, 1.1, skinManager.currentIndex, bird.wingAngle);
             ctx.restore();
@@ -1106,15 +1117,25 @@
                 pipes.forEach(p => { drawPipe(p.x, p.top, p.bottom); });
                 drawInGameBird(bird.x, bird.y);
 
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 25px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
-                ctx.fillText(score, canvas.width / 2, 50);
+                if (window.gameState === "READY") {
+                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 22px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
+                    ctx.shadowColor = "#000"; ctx.shadowBlur = 6;
+                    ctx.fillText("TAP TO PLAY", canvas.width / 2, canvas.height / 2 - 80);
+                    ctx.font = "bold 14px 'Segoe UI', sans-serif";
+                    ctx.fillStyle = "#9ef01a";
+                    ctx.fillText("Press Space or Click to Flap", canvas.width / 2, canvas.height / 2 - 50);
+                    ctx.shadowBlur = 0;
+                } else {
+                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 25px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
+                    ctx.fillText(score, canvas.width / 2, 50);
+                }
 
                 if (coinImg.complete && coinImg.naturalWidth !== 0) ctx.drawImage(coinImg, 16, 16, 22, 22);
                 ctx.fillStyle = "#ffcc00"; ctx.font = "bold 15px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
                 ctx.fillText(window.coins, 42, 33);
 
                 if (window.gameState === "GAMEOVER") {
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; ctx.fillRect(0, 0, canvas.width, canvas.html);
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                     let pX = 70, pY = 160, pW = 220, pH = 260;
                     ctx.fillStyle = "#1b4332"; ctx.beginPath(); ctx.roundRect(pX, pY, pW, pH, 15); ctx.fill();

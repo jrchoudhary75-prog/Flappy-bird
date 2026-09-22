@@ -261,6 +261,17 @@
 
         let leaderboardScrollOffset = 0;
 
+        // NEW FEATURE: Dynamic Weather & Particles (Stars & Rain based on Score/Time)
+        let weatherParticles = [];
+        for(let i=0; i<30; i++) {
+            weatherParticles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                speed: 100 + Math.random() * 150,
+                size: 1 + Math.random() * 2
+            });
+        }
+
         function initAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -590,8 +601,19 @@
 
         function drawActiveBackground(dt) {
             let bg = skinManager.getCurrentBackground();
+            
+            // Dynamic Weather Shift based on score (Every 5 points toggles evening/night/rain aura)
             let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            skyGrad.addColorStop(0, bg.top); skyGrad.addColorStop(0.5, bg.mid); skyGrad.addColorStop(1, bg.bot);
+            if (score >= 5 && score < 10) {
+                // Evening Theme
+                skyGrad.addColorStop(0, "#2b2d42"); skyGrad.addColorStop(0.5, "#8d99ae"); skyGrad.addColorStop(1, "#d90429");
+            } else if (score >= 10) {
+                // Night Theme with stars
+                skyGrad.addColorStop(0, "#03071e"); skyGrad.addColorStop(0.5, "#10002b"); skyGrad.addColorStop(1, "#240046");
+            } else {
+                skyGrad.addColorStop(0, bg.top); skyGrad.addColorStop(0.5, bg.mid); skyGrad.addColorStop(1, bg.bot);
+            }
+
             ctx.fillStyle = skyGrad;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -621,6 +643,18 @@
                 if (c.x < -50) c.x = canvas.width + 50;
                 drawSingleCloud(c.x, c.y, c.scale);
             });
+
+            // Draw Weather Particles (Rain/Stars effect)
+            if (score >= 5) {
+                ctx.fillStyle = score >= 10 ? "#ffffff" : "rgba(173, 216, 230, 0.6)";
+                weatherParticles.forEach(p => {
+                    p.y += p.speed * dt;
+                    if (p.y > canvas.height) p.y = 0;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
 
             ctx.fillStyle = "#1b4332";
             ctx.fillRect(0, canvas.height - 45, canvas.width, 45);
@@ -747,13 +781,11 @@
             ctx.save();
             ctx.translate(centerX, centerY);
 
-            // Glow / Shadow behind bird
             ctx.fillStyle = "rgba(0,0,0,0.3)";
             ctx.beginPath();
             ctx.arc(0, 10, 40, 0, Math.PI * 2);
             ctx.fill();
 
-            // Bird Body (Yellow/Orange)
             let bodyGrad = ctx.createRadialGradient(-5, -5, 5, 0, 0, 32);
             bodyGrad.addColorStop(0, "#ffeb3b");
             bodyGrad.addColorStop(0.7, "#ff9800");
@@ -766,7 +798,6 @@
             ctx.lineWidth = 2.5;
             ctx.stroke();
 
-            // Wing (Yellow/White)
             ctx.fillStyle = "#fff59d";
             ctx.beginPath();
             ctx.ellipse(-4, 6, 12, 8, Math.PI / 6, 0, Math.PI * 2);
@@ -775,7 +806,6 @@
             ctx.lineWidth = 1.5;
             ctx.stroke();
 
-            // Eye (Big White Circle with Black Pupil)
             ctx.fillStyle = "#ffffff";
             ctx.beginPath();
             ctx.arc(10, -8, 11, 0, Math.PI * 2);
@@ -793,7 +823,6 @@
             ctx.arc(14.5, -9.5, 1.5, 0, Math.PI * 2);
             ctx.fill();
 
-            // Beak (Orange/Red triangle)
             ctx.fillStyle = "#ff5722";
             ctx.beginPath();
             ctx.moveTo(20, -2);
@@ -816,10 +845,8 @@
                 ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; 
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // Custom attractive Flappy Bird Logo Graphic
                 drawCustomLoadingLogo(canvas.width / 2, canvas.height / 2 - 50);
 
-                // Flappy Bird Title Text
                 ctx.fillStyle = "#ffd166"; 
                 ctx.font = "bold 26px 'Segoe UI', sans-serif"; 
                 ctx.textAlign = "center";
@@ -827,11 +854,10 @@
                 ctx.fillText("FLAPPY BIRD", canvas.width / 2, canvas.height / 2 + 35);
                 ctx.shadowBlur = 0;
 
-                // Loading text at the bottom with slower dots animation
                 ctx.fillStyle = "#b7e4c7"; 
                 ctx.font = "bold 14px 'Segoe UI', sans-serif"; 
                 ctx.textAlign = "center";
-                let dotsCount = Math.floor(idleAnimCounter * 1.5) % 4; // Dheere play hone wala animation
+                let dotsCount = Math.floor(idleAnimCounter * 1.5) % 4;
                 let dots = ".".repeat(dotsCount);
                 ctx.fillText("Loading" + dots, canvas.width / 2, canvas.height - 110);
 
@@ -982,7 +1008,6 @@
                     ctx.fillStyle = "#ffffff"; ctx.font = "bold 12px 'Segoe UI', sans-serif"; ctx.textAlign = "center";
                     ctx.fillText("No Players Registered Yet!", canvas.width / 2, boxY + 215);
                 } else {
-                    // Table Header
                     ctx.fillStyle = "#ffcc00"; ctx.font = "bold 11px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
                     ctx.fillText("RANK", boxX + 12, boxY + 28);
                     ctx.fillText("PLAYER", boxX + 55, boxY + 28);
@@ -992,7 +1017,6 @@
                     ctx.strokeStyle = "#2d6a4f"; ctx.lineWidth = 1;
                     ctx.beginPath(); ctx.moveTo(boxX + 10, boxY + 38); ctx.lineTo(boxX + boxW - 10, boxY + 38); ctx.stroke();
 
-                    // Scrollable List Area Clipping
                     ctx.save();
                     ctx.beginPath();
                     ctx.rect(boxX + 5, boxY + 42, boxW - 10, boxH - 50);
@@ -1090,7 +1114,7 @@
                 ctx.fillText(window.coins, 42, 33);
 
                 if (window.gameState === "GAMEOVER") {
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; ctx.fillRect(0, 0, canvas.width, canvas.html);
 
                     let pX = 70, pY = 160, pW = 220, pH = 260;
                     ctx.fillStyle = "#1b4332"; ctx.beginPath(); ctx.roundRect(pX, pY, pW, pH, 15); ctx.fill();

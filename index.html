@@ -320,6 +320,7 @@
 
         const coinImg = new Image(); coinImg.src = "coin.png";
         const settingImg = new Image(); settingImg.src = "setting.png";
+        const logoImg = new Image(); logoImg.src = "Flappy bird logo.png";
 
         let clouds = [
             { x: 50, y: 80, scale: 0.8, speed: 30 },
@@ -731,25 +732,24 @@
                 ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; 
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // Flappy Bird Game Logo & Title in the center
-                ctx.save();
-                ctx.shadowColor = "#000"; 
-                ctx.shadowBlur = 8;
-                ctx.fillStyle = "#ffffff"; 
-                ctx.font = "bold 27px 'Segoe UI', sans-serif"; 
-                ctx.textAlign = "center";
-                ctx.fillText("FLAPPY BIRD", canvas.width / 2, canvas.height / 2 - 35);
-                ctx.shadowBlur = 0;
+                // Flappy Bird Logo Image in the center
+                let logoW = 220;
+                let logoH = 80;
+                if (logoImg.complete && logoImg.naturalWidth !== 0) {
+                    ctx.drawImage(logoImg, (canvas.width - logoW) / 2, canvas.height / 2 - 55, logoW, logoH);
+                } else {
+                    ctx.fillStyle = "#ffffff"; 
+                    ctx.font = "bold 27px 'Segoe UI', sans-serif"; 
+                    ctx.textAlign = "center";
+                    ctx.fillText("FLAPPY BIRD", canvas.width / 2, canvas.height / 2 - 35);
+                }
 
-                // Center Bird Graphic
-                skinManager.drawBirdGraphic(ctx, canvas.width / 2, canvas.height / 2 + 15, 1.2, skinManager.currentIndex, Math.sin(idleAnimCounter * 3) * 0.3);
-                ctx.restore();
-
-                // Loading text at the bottom
+                // Loading text at the bottom with slower dots animation
                 ctx.fillStyle = "#b7e4c7"; 
                 ctx.font = "bold 14px 'Segoe UI', sans-serif"; 
                 ctx.textAlign = "center";
-                let dots = ".".repeat(Math.floor(idleAnimCounter * 3) % 4);
+                let dotsCount = Math.floor(idleAnimCounter * 1.5) % 4; // Dheere play hone wala animation
+                let dots = ".".repeat(dotsCount);
                 ctx.fillText("Loading" + dots, canvas.width / 2, canvas.height - 110);
 
                 ctx.textAlign = "left";

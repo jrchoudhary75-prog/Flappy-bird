@@ -341,7 +341,6 @@
 
         let mountainX = 0;
         let storeTab = "BIRD";
-        // Slightly increased gravity (from 1200 to 1300)
         let bird = { x: 70, y: 250, width: 32, height: 24, gravity: 1300, lift: -360, velocity: 0, wingAngle: 0 };
         let pipes = [];
         let pipeWidth = 55;
@@ -516,7 +515,9 @@
                 if (mouseX >= 220 && mouseX <= 300 && mouseY >= 280 && mouseY <= 320) {
                     settings.sound = !settings.sound; playSound("click");
                 }
-                if (mouseX >= 45 && mouseX <= 315 && mouseY >= 415 && mouseY <= 455) {
+                // Updated logout button coordinates click validation matching boxY(85) + 310 = 395 to 435
+                let boxX = 25, boxY = 85, boxW = 310;
+                if (mouseX >= boxX + 20 && mouseX <= boxX + boxW - 20 && mouseY >= boxY + 310 && mouseY <= boxY + 350) {
                     triggerClick("logout", () => {
                         if (typeof window.logoutUser === "function") window.logoutUser();
                     });
@@ -614,10 +615,11 @@
             let bg = skinManager.getCurrentBackground();
             
             let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            // Updated to be very subtle background color shift for scores >= 5 and >= 10
             if (score >= 5 && score < 10) {
-                skyGrad.addColorStop(0, "#2b2d42"); skyGrad.addColorStop(0.5, "#8d99ae"); skyGrad.addColorStop(1, "#d90429");
+                skyGrad.addColorStop(0, "#19323c"); skyGrad.addColorStop(0.5, "#1f485b"); skyGrad.addColorStop(1, "#26546d");
             } else if (score >= 10) {
-                skyGrad.addColorStop(0, "#03071e"); skyGrad.addColorStop(0.5, "#10002b"); skyGrad.addColorStop(1, "#240046");
+                skyGrad.addColorStop(0, "#121b22"); skyGrad.addColorStop(0.5, "#1b2a32"); skyGrad.addColorStop(1, "#223843");
             } else {
                 skyGrad.addColorStop(0, bg.top); skyGrad.addColorStop(0.5, bg.mid); skyGrad.addColorStop(1, bg.bot);
             }
@@ -716,10 +718,9 @@
                 if (bird.wingAngle > 0) bird.wingAngle = 0;
             }
 
-            // READY State: Slower hover and slower wing flapping animation
             if (window.gameState === "READY") {
-                bird.y = 250 + Math.sin(idleAnimCounter * 2.5) * 10; // Slower hover
-                bird.wingAngle = Math.sin(idleAnimCounter * 5) * 0.5; // Slower wing flap
+                bird.y = 250 + Math.sin(idleAnimCounter * 2.5) * 10;
+                bird.wingAngle = Math.sin(idleAnimCounter * 5) * 0.5;
                 return;
             }
 
@@ -790,60 +791,67 @@
             ctx.restore();
         }
 
+        // Enhanced and more fun loading screen logo design with animated wing
         function drawCustomLoadingLogo(centerX, centerY) {
             ctx.save();
             ctx.translate(centerX, centerY);
 
-            ctx.fillStyle = "rgba(0,0,0,0.3)";
+            ctx.fillStyle = "rgba(0,0,0,0.35)";
             ctx.beginPath();
-            ctx.arc(0, 10, 40, 0, Math.PI * 2);
+            ctx.arc(0, 15, 45, 0, Math.PI * 2);
             ctx.fill();
 
-            let bodyGrad = ctx.createRadialGradient(-5, -5, 5, 0, 0, 32);
-            bodyGrad.addColorStop(0, "#ffeb3b");
-            bodyGrad.addColorStop(0.7, "#ff9800");
-            bodyGrad.addColorStop(1, "#e65100");
+            let bodyGrad = ctx.createRadialGradient(-8, -8, 5, 0, 0, 36);
+            bodyGrad.addColorStop(0, "#ffe600");
+            bodyGrad.addColorStop(0.6, "#ff8800");
+            bodyGrad.addColorStop(1, "#cc4400");
             ctx.fillStyle = bodyGrad;
             ctx.beginPath();
-            ctx.arc(0, 0, 28, 0, Math.PI * 2);
+            ctx.arc(0, 0, 32, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = "#b23c00";
-            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = "#992200";
+            ctx.lineWidth = 3;
             ctx.stroke();
 
-            ctx.fillStyle = "#fff59d";
+            // Animated wing flap based on idleAnimCounter
+            ctx.save();
+            let wingAngleOffset = Math.sin(idleAnimCounter * 6) * 0.3;
+            ctx.translate(-4, 6);
+            ctx.rotate(wingAngleOffset);
+            ctx.fillStyle = "#fff176";
             ctx.beginPath();
-            ctx.ellipse(-4, 6, 12, 8, Math.PI / 6, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, 13, 9, Math.PI / 6, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = "#e65100";
+            ctx.strokeStyle = "#d84315";
             ctx.lineWidth = 1.5;
             ctx.stroke();
+            ctx.restore();
 
             ctx.fillStyle = "#ffffff";
             ctx.beginPath();
-            ctx.arc(10, -8, 11, 0, Math.PI * 2);
+            ctx.arc(12, -8, 12, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = "#333333";
+            ctx.strokeStyle = "#222222";
             ctx.lineWidth = 2;
             ctx.stroke();
 
             ctx.fillStyle = "#000000";
             ctx.beginPath();
-            ctx.arc(13, -8, 4.5, 0, Math.PI * 2);
+            ctx.arc(15, -8, 5, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = "#ffffff";
             ctx.beginPath();
-            ctx.arc(14.5, -9.5, 1.5, 0, Math.PI * 2);
+            ctx.arc(16.5, -9.5, 1.8, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.fillStyle = "#ff5722";
+            ctx.fillStyle = "#ff3d00";
             ctx.beginPath();
-            ctx.moveTo(20, -2);
-            ctx.lineTo(34, 1);
-            ctx.lineTo(20, 8);
+            ctx.moveTo(22, -2);
+            ctx.lineTo(38, 2);
+            ctx.lineTo(22, 10);
             ctx.closePath();
             ctx.fill();
-            ctx.strokeStyle = "#b23c00";
+            ctx.strokeStyle = "#992200";
             ctx.lineWidth = 2;
             ctx.stroke();
 
@@ -1030,16 +1038,13 @@
                     ctx.strokeStyle = "#2d6a4f"; ctx.lineWidth = 1;
                     ctx.beginPath(); ctx.moveTo(boxX + 10, boxY + 38); ctx.lineTo(boxX + boxW - 10, boxY + 38); ctx.stroke();
 
-                    // Check if current user exists in leaderboard data and get rank
                     let myRankIndex = -1;
                     if (window.userEmail) {
                         myRankIndex = window.leaderboardData.findIndex(item => item.email === window.userEmail);
                     }
 
-                    // Height reserved for sticky bottom row if logged-in user is found
                     let bottomStickyHeight = (myRankIndex !== -1) ? 42 : 0;
 
-                    // Scrollable area clip
                     ctx.save();
                     ctx.beginPath();
                     ctx.rect(boxX + 5, boxY + 42, boxW - 10, boxH - 50 - bottomStickyHeight);
@@ -1071,7 +1076,6 @@
                     }
                     ctx.restore();
 
-                    // Sticky bottom row for current user's rank
                     if (myRankIndex !== -1) {
                         let myItem = window.leaderboardData[myRankIndex];
                         let stickyY = boxY + boxH - 36;
@@ -1153,7 +1157,6 @@
                 drawInGameBird(bird.x, bird.y);
 
                 if (window.gameState === "READY") {
-                    // Slow blinking animation (smooth fade in/out) and positioned lower
                     let textAlpha = 0.3 + (Math.sin(idleAnimCounter * 2) + 1) * 0.35;
                     let textY = canvas.height / 2 + 140;
 

@@ -19,16 +19,10 @@
         }
         canvas {
             width: 400px;
-            height: 700px;
+            height: 740px;
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
             background: #1b4332;
-        }
-        .instructions {
-            margin-top: 10px;
-            font-size: 13px;
-            color: #b7e4c7;
-            text-align: center;
         }
     </style>
     <script src="skins.js"></script>
@@ -204,14 +198,10 @@
 </head>
 <body>
 
-    <canvas id="gameCanvas" width="400" height="700"></canvas>
+    <canvas id="gameCanvas" width="400" height="740"></canvas>
     
     <!-- Hidden Mobile Keyboard Input -->
     <input type="text" id="mobileInput" style="position: absolute; opacity: 0; pointer-events: none; left: 0; top: 0; width: 1px; height: 1px;" autocomplete="off" />
-
-    <div class="instructions">
-        Type directly on keyboard for profile setup | Press Spacebar or Click to play!
-    </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");

@@ -6,7 +6,7 @@
   "orientation": "portrait",
   "scope": "/",
   "short_name": "flappy-bird-kb37.onrender",
-  "start_url": "/index.html",
+  "start_url": "/https://flappy-bird-kb37.onrender.com",
   "theme_color": "#000000",
   "lang": "en"
 }

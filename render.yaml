@@ -1,8 +1,10 @@
 services:
   - type: web
-    name: Flappy-bird
+    name: my-chess-game
     env: static
     routes:
+      # यह नियम सबसे ऊपर होना चाहिए ताकि गेम खुलने से पहले फ़ाइल मिल जाए
       - type: rewrite
         src: /.well-known/assetlinks.json
-        path: /.well-known/assetlinks.json
+        path: /assetlinks.json
+      # इसके नीचे आपके गेम का पुराना रूट रहेगा (अगर कोई है तो)

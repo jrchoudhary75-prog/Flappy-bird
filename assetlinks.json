@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.onrender.flappy_bird_kb37.twa",
+        "sha256_cert_fingerprints": ["96:3E:60:B9:A2:DE:5D:77:A5:50:4C:29:F7:09:51:FA:F5:FF:2E:AC:66:44:39:32:64:09:7F:44:11:29:D7:C7"]
+      }
+    }]

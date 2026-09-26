@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "735495318337",
+    "firebase_url": "https://chess-arena-eb263-default-rtdb.firebaseio.com",
+    "project_id": "chess-arena-eb263",
+    "storage_bucket": "chess-arena-eb263.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:735495318337:android:3bbbf645a423b1bb448fc0",
+        "android_client_info": {
+          "package_name": "com.flappybird.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "735495318337-rkkmgkbfls6rmsvm9pp6jlntirjodks0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrzm7G6IX0ZVP-lncey58Q9XnXR0R0GeM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "735495318337-rkkmgkbfls6rmsvm9pp6jlntirjodks0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

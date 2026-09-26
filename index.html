@@ -35,7 +35,21 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInWithCredential } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-    import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
+    // चेक करें कि क्या Capacitor उपलब्ध है
+const FirebaseAuth = window.Capacitor ? window.Capacitor.Plugins.FirebaseAuthentication : null;
+
+async function loginWithGoogle() {
+  if (FirebaseAuth) {
+    try {
+      const result = await FirebaseAuth.signInWithGoogle();
+      console.log('User logged in:', result);
+    } catch (error) {
+      console.error('Login failed', error);
+    }
+  } else {
+    console.log('Running on standard web browser, use web SDK instead');
+  }
+}
 
     const firebaseConfig = {
         apiKey: "AIzaSyBYTo_Flsgdj_3ktQ3FB704xgbTSppLpt0",

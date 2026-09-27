@@ -231,7 +231,9 @@
     <input type="text" id="mobileInput" style="position: absolute; opacity: 0; pointer-events: none; left: 0; top: 0; width: 1px; height: 1px;" autocomplete="off" />
 
     <script>
-        // Unity Ads Configuration
+        // ==========================================
+        // FIXED UNITY ADS CONFIGURATION & LOGIC
+        // ==========================================
         const UNITY_GAME_ID = "800382029";
         const UNITY_PLACEMENT_ID = "BP_Interstitial_Android";
         let isUnityAdsReady = false;
@@ -242,14 +244,15 @@
                     gameId: UNITY_GAME_ID,
                     testMode: true,
                     onComplete: function() {
+                        console.log("✅ Unity Ads Initialized Successfully!");
                         isUnityAdsReady = true;
                     },
-                    onFailed: function(err) {
-                        console.warn("Unity Ads Init Failed:", err);
+                    onFailed: function(err, message) {
+                        console.error("❌ Unity Ads Init Failed:", err, message);
                     }
                 });
             } catch(e) {
-                console.warn("Unity Ads error:", e);
+                console.warn("Unity Ads init exception:", e);
             }
         }
 
@@ -265,26 +268,52 @@
                 }
             };
 
-            fallbackTimer = setTimeout(done, 8000); // Extended fallback safety timeout
+            // Safely resume game if Ad hangs or fails to load within 3.5 seconds
+            fallbackTimer = setTimeout(() => {
+                console.warn("⚠️ Ad display timeout or not available. Continuing game.");
+                done();
+            }, 3500);
 
+            // 1. Web JS SDK Integration Check
             if (window.UnityAds && typeof window.UnityAds.show === "function") {
+                if (window.UnityAds.isReady && !window.UnityAds.isReady(UNITY_PLACEMENT_ID)) {
+                    console.warn("⚠️ Unity Ad Placement is not ready yet.");
+                    done();
+                    return;
+                }
                 try {
                     window.UnityAds.show(UNITY_PLACEMENT_ID, {
-                        onComplete: done,
-                        onFailed: done
+                        onComplete: function() {
+                            console.log("✅ Unity Ad Finished/Closed");
+                            done();
+                        },
+                        onFailed: function(err) {
+                            console.error("❌ Unity Ad Show Failed:", err);
+                            done();
+                        }
                     });
                 } catch(e) {
+                    console.error("Ad execution error:", e);
                     done();
                 }
-            } else if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.UnityAds) {
+            } 
+            // 2. Native Capacitor Plugin Integration Check
+            else if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.UnityAds) {
                 try {
                     window.Capacitor.Plugins.UnityAds.showInterstitial({ placementId: UNITY_PLACEMENT_ID })
-                        .then(() => done())
-                        .catch(() => done());
+                        .then(() => {
+                            console.log("✅ Capacitor Unity Ad Finished");
+                            done();
+                        })
+                        .catch((err) => {
+                            console.error("Capacitor Unity Ads Error:", err);
+                            done();
+                        });
                 } catch(e) {
                     done();
                 }
             } else {
+                console.warn("No active Unity Ads SDK detected in this runtime context.");
                 done();
             }
         };
